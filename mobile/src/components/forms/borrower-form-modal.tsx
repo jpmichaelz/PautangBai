@@ -25,7 +25,14 @@ interface BorrowerFormModalProps {
   onSuccess?: (borrower: Borrower) => void;
 }
 
-const QUICK_TAGS = ["Silingan", "Suki", "Kaila", "Pamilya", "Trabaho"] as const;
+const QUICK_TAGS = [
+  "Silingan",
+  "Suki",
+  "Kaila",
+  "Pamilya",
+  "Trabaho",
+  "Classmate",
+] as const;
 
 export function BorrowerFormModal({
   visible,
@@ -237,22 +244,22 @@ export function BorrowerFormModal({
             <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
               Category / Tag
             </Text>
-            <View className="flex-row flex-wrap gap-2">
+            <View className="flex-row flex-wrap justify-center items-center gap-2.5">
               {QUICK_TAGS.map((tag) => {
                 const isSelected = selectedTag === tag;
                 return (
                   <Pressable
                     key={tag}
                     onPress={() => toggleTag(tag)}
-                    className={`px-3 py-1.5 rounded-full border ${
+                    className={`px-4 py-2 rounded-full border ${
                       isSelected
-                        ? "bg-forest border-forest"
+                        ? "bg-forest border-forest shadow-xs"
                         : "bg-white border-border"
                     } active:scale-95`}
                   >
                     <Text
-                      className={`text-xs font-bold ${
-                        isSelected ? "text-white" : "text-slate"
+                      className={`text-sm font-bold ${
+                        isSelected ? "text-white" : "text-slate-700"
                       }`}
                     >
                       {isSelected ? `✓ ${tag}` : tag}
