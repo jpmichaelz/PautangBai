@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">PautangBai Onboarding Background</title>
+  <desc id="desc">A soft celadon and mint upper pond landscape with gentle ripples and lily pads, flowing into a rich forest-green base.</desc>
+  <defs>
+    <linearGradient id="mintGrad" x1="0" y1="0" x2="1080" y2="1500" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#DDF0E4"/>
+      <stop offset="0.6" stop-color="#BCE9CA"/>
+      <stop offset="1" stop-color="#A8DCC5"/>
+    </linearGradient>
+    <linearGradient id="forestGrad" x1="540" y1="1500" x2="540" y2="1920" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#287A63"/>
+      <stop offset="1" stop-color="#173D35"/>
+    </linearGradient>
+    <g id="pad">
+      <path d="M0 42C9 8 51-10 85 4C110 14 126 38 122 61C94 47 75 47 58 65C39 86 11 75 0 42Z" fill="#72C59B"/>
+      <path d="M58 65C58 46 70 26 94 13" stroke="#287A63" stroke-width="4" stroke-linecap="round"/>
+      <path d="M85 4L77 26L94 21" fill="#A8DCC5"/>
+    </g>
+    <g id="coin">
+      <circle cx="0" cy="0" r="37" fill="#F0B85A"/>
+      <circle cx="0" cy="0" r="28" stroke="#D69C33" stroke-width="3"/>
+      <path d="M-9-15H5C18-15 18 0 5 0H-9M-9-15V17M-17-5H5M-17 5H5" stroke="#80551B" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </defs>
+  <!-- Light mint and celadon canvas for crisp dark-text legibility -->
+  <rect width="1080" height="1920" fill="url(#mintGrad)"/>
+  
+  <!-- Subtle decorative ripples & pond accents in upper hero area -->
+  <circle cx="980" cy="190" r="240" fill="#72C59B" opacity="0.18"/>
+  <circle cx="980" cy="190" r="160" stroke="#287A63" stroke-width="3" opacity="0.12"/>
+  <circle cx="70" cy="620" r="180" fill="#A8DCC5" opacity="0.25"/>
+  <circle cx="70" cy="620" r="110" stroke="#72C59B" stroke-width="3" opacity="0.15"/>
+  <g opacity="0.8" transform="translate(930 380) rotate(14) scale(0.68)"><use href="#pad"/></g>
+  <g opacity="0.7" transform="translate(110 520) rotate(-12) scale(0.55)"><use href="#coin"/></g>
+  
+  <!-- Flowing bottom edge into forest green base -->
+  <path d="M0 1520C180 1475 310 1515 440 1555C580 1600 710 1590 850 1545C950 1512 1020 1520 1080 1540V1920H0V1520Z" fill="#A8DCC5" opacity="0.5"/>
+  <path d="M0 1600C165 1545 290 1585 425 1625C570 1670 705 1655 845 1612C945 1580 1015 1595 1080 1618V1920H0V1600Z" fill="#287A63" opacity="0.4"/>
+  <path d="M0 1670C155 1615 280 1655 420 1695C565 1735 700 1720 840 1680C940 1650 1015 1665 1080 1685V1920H0V1670Z" fill="url(#forestGrad)"/>
+  <path d="M60 1620C210 1585 305 1620 405 1652" stroke="#72C59B" stroke-width="6" stroke-linecap="round" opacity="0.5"/>
+  <path d="M690 1705C820 1665 925 1665 1030 1692" stroke="#A8DCC5" stroke-width="5" stroke-linecap="round" opacity="0.4"/>
+  <g transform="translate(70 1720) rotate(-10) scale(0.95)"><use href="#pad"/></g>
+  <g transform="translate(860 1740) rotate(12) scale(1.1)"><use href="#pad"/></g>
+  <g opacity="0.85" transform="translate(980 1620) rotate(16) scale(0.65)"><use href="#coin"/></g>
+</svg>

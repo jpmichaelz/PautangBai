@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">PautangBai Premium Dashboard Background</title>
+  <desc id="desc">A serene, luminous mint pond background with soft ripples, organic lily pads, and floating peso coins tailored for high-contrast card readability.</desc>
+  <defs>
+    <!-- Soft luminous pond canvas gradient -->
+    <linearGradient id="dashCanvas" x1="0" y1="0" x2="1080" y2="1600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EFF8F2"/>
+      <stop offset="0.45" stop-color="#E1F2E7"/>
+      <stop offset="0.85" stop-color="#D1EBDB"/>
+      <stop offset="1" stop-color="#BEE3CB"/>
+    </linearGradient>
+
+    <!-- Deep flowing forest gradient for bottom footer -->
+    <linearGradient id="dashForest" x1="540" y1="1560" x2="540" y2="1920" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#287A63"/>
+      <stop offset="0.7" stop-color="#1B4D41"/>
+      <stop offset="1" stop-color="#173D35"/>
+    </linearGradient>
+
+    <!-- Lush leaf gradient -->
+    <linearGradient id="padGrad" x1="0" y1="0" x2="120" y2="80" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#84D3AB"/>
+      <stop offset="1" stop-color="#5BB88A"/>
+    </linearGradient>
+
+    <!-- Golden Coin gradient -->
+    <linearGradient id="coinGrad" x1="-30" y1="-30" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE8A3"/>
+      <stop offset="0.5" stop-color="#F2BA5A"/>
+      <stop offset="1" stop-color="#DF9B28"/>
+    </linearGradient>
+
+    <!-- Reusable Lily Pad with notch and veins -->
+    <g id="pad">
+      <path d="M0 42C9 8 51-10 85 4C110 14 126 38 122 61C94 47 75 47 58 65C39 86 11 75 0 42Z" fill="url(#padGrad)"/>
+      <path d="M58 65C58 46 70 26 94 13" stroke="#287A63" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="M58 65C45 50 32 38 18 30" stroke="#287A63" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+      <path d="M85 4L77 26L94 21" fill="#A8DCC5" opacity="0.8"/>
+    </g>
+
+    <!-- Reusable Embossed Peso Coin -->
+    <g id="coin">
+      <circle cx="0" cy="0" r="38" fill="url(#coinGrad)"/>
+      <circle cx="0" cy="0" r="30" stroke="#B87D20" stroke-width="3" opacity="0.7"/>
+      <path d="M-9-15H5C18-15 18 0 5 0H-9M-9-15V17M-17-5H5M-17 5H5" stroke="#75470D" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </defs>
+
+  <!-- Base luminous canvas -->
+  <rect width="1080" height="1920" fill="url(#dashCanvas)"/>
+
+  <!-- Top Right decorative pond ripple cluster (behind notifications/battery area) -->
+  <circle cx="1020" cy="160" r="280" fill="#72C59B" opacity="0.16"/>
+  <circle cx="1020" cy="160" r="190" stroke="#287A63" stroke-width="2.5" opacity="0.18"/>
+  <circle cx="1020" cy="160" r="110" stroke="#72C59B" stroke-width="2" opacity="0.22"/>
+  <g opacity="0.75" transform="translate(940 280) rotate(22) scale(0.72)"><use href="#pad"/></g>
+  <g opacity="0.85" transform="translate(1015 110) rotate(-10) scale(0.55)"><use href="#coin"/></g>
+
+  <!-- Top Left subtle accent ripple -->
+  <circle cx="-30" cy="130" r="180" fill="#A8DCC5" opacity="0.20"/>
+  <circle cx="-30" cy="130" r="110" stroke="#287A63" stroke-width="2" opacity="0.14"/>
+  <g opacity="0.65" transform="translate(30 200) rotate(-18) scale(0.6)"><use href="#pad"/></g>
+
+  <!-- Mid-screen ambient floating water accents (near margins, clear of central cards) -->
+  <circle cx="50" cy="820" r="140" fill="#72C59B" opacity="0.12"/>
+  <circle cx="50" cy="820" r="85" stroke="#287A63" stroke-width="2" opacity="0.1"/>
+  <g opacity="0.45" transform="translate(25 870) rotate(35) scale(0.55)"><use href="#pad"/></g>
+  <g opacity="0.4" transform="translate(60 760) scale(0.38)"><use href="#coin"/></g>
+
+  <circle cx="1040" cy="1080" r="160" fill="#A8DCC5" opacity="0.15"/>
+  <g opacity="0.5" transform="translate(980 1140) rotate(-25) scale(0.6)"><use href="#pad"/></g>
+  <g opacity="0.5" transform="translate(1020 1020) rotate(14) scale(0.42)"><use href="#coin"/></g>
+
+  <!-- Lower pond layered wave landscape (cradles bottom nav tab) -->
+  <path d="M0 1520C190 1465 330 1515 470 1560C620 1610 760 1595 900 1545C990 1515 1045 1525 1080 1540V1920H0V1520Z" fill="#A8DCC5" opacity="0.55"/>
+  <path d="M0 1600C170 1540 305 1585 450 1630C600 1675 745 1660 885 1615C985 1580 1040 1595 1080 1615V1920H0V1600Z" fill="#72C59B" opacity="0.4"/>
+  <path d="M0 1675C160 1610 295 1655 440 1700C590 1745 735 1725 875 1680C975 1645 1040 1660 1080 1680V1920H0V1675Z" fill="url(#dashForest)"/>
+
+  <!-- Wave highlights -->
+  <path d="M40 1625C200 1580 320 1620 440 1660" stroke="#D1EBDB" stroke-width="5" stroke-linecap="round" opacity="0.6"/>
+  <path d="M680 1715C810 1670 930 1670 1040 1700" stroke="#84D3AB" stroke-width="4.5" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Bottom corner decorative clusters -->
+  <g transform="translate(65 1715) rotate(-14) scale(1.15)"><use href="#pad"/></g>
+  <g opacity="0.9" transform="translate(180 1810) rotate(8) scale(0.68)"><use href="#coin"/></g>
+  <g transform="translate(860 1730) rotate(16) scale(1.25)"><use href="#pad"/></g>
+  <g opacity="0.95" transform="translate(980 1635) rotate(-12) scale(0.78)"><use href="#coin"/></g>
+  <circle cx="270" cy="1770" r="7" fill="#F2BA5A" opacity="0.8"/>
+  <circle cx="310" cy="1815" r="4.5" fill="#FFE8A3" opacity="0.9"/>
+  <circle cx="810" cy="1795" r="5" fill="#FFE8A3" opacity="0.85"/>
+</svg>
