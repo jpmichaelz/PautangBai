@@ -13,18 +13,23 @@ import {
 } from "react-native";
 import { setVisibilityAsync } from "expo-navigation-bar";
 
-LogBox.ignoreLogs(["ImageBackground is deprecated"]);
+LogBox.ignoreLogs([
+  "ImageBackground is deprecated",
+  "setLayoutAnimationEnabledExperimental",
+]);
 
 const originalWarn = console.warn;
 console.warn = (...args: unknown[]) => {
   if (
     typeof args[0] === "string" &&
-    args[0].includes("ImageBackground is deprecated")
+    (args[0].includes("ImageBackground is deprecated") ||
+      args[0].includes("setLayoutAnimationEnabledExperimental"))
   ) {
     return;
   }
   originalWarn(...args);
 };
+
 
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
 import AppTabs from "@/components/app-tabs";
