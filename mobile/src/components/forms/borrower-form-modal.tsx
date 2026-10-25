@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { borrowerHelper } from "@/db-helpers/borrowers";
 import { Borrower } from "@/types/database";
 import { Frog } from "@/components/frog";
+import { FeedbackModal } from "@/components/feedback-modal";
 import { generateUUID } from "@/services/uuid";
 
 interface BorrowerFormModalProps {
@@ -38,6 +39,13 @@ export function BorrowerFormModal({
   const [notes, setNotes] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    visible: boolean;
+    type: "success" | "error";
+    title: string;
+    message: string;
+    savedBorrower?: Borrower;
+  } | null>(null);
 
   const resetForm = () => {
     setName("");
@@ -52,6 +60,16 @@ export function BorrowerFormModal({
     if (isSubmitting) return;
     resetForm();
     onClose();
+  };
+
+  const handleFeedbackClose = () => {
+    const saved = feedback?.savedBorrower;
+    setFeedback(null);
+    resetForm();
+    onClose();
+    if (saved) {
+      onSuccess?.(saved);
+    }
   };
 
   const toggleTag = (tag: string) => {
@@ -88,15 +106,21 @@ export function BorrowerFormModal({
         status: "active",
       });
 
-      resetForm();
-      onClose();
-      onSuccess?.(savedBorrower);
+      setFeedback({
+        visible: true,
+        type: "success",
+        title: "Borrower Added!",
+        message: `${savedBorrower.name} has been added to your borrower directory.`,
+        savedBorrower,
+      });
     } catch (err) {
       console.error("Failed to create borrower:", err);
-      Alert.alert(
-        "Error",
-        "Dili ma-save ang mangungutang. Palihug sulayi pag-usab.",
-      );
+      setFeedback({
+        visible: true,
+        type: "error",
+        title: "Failed to Save",
+        message: "Unable to save borrower right now. Please try again.",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -272,6 +296,18 @@ export function BorrowerFormModal({
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {feedback && (
+        <FeedbackModal
+          visible={feedback.visible}
+          type={feedback.type}
+          mood={feedback.type === "success" ? "celebrate" : "thinking"}
+          title={feedback.title}
+          message={feedback.message}
+          buttonText={feedback.type === "success" ? "Done" : "Try Again"}
+          onClose={handleFeedbackClose}
+        />
+      )}
     </Modal>
   );
 }

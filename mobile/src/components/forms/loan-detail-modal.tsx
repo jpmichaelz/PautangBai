@@ -6,6 +6,7 @@ import {
   Pressable,
   Modal,
   Linking,
+  Alert,
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -24,6 +25,7 @@ interface LoanDetailModalProps {
   borrower: Borrower | null;
   payments: Payment[];
   onRecordPayment?: (loan: Loan) => void;
+  onDeleteLoan?: (loan: Loan) => void;
 }
 
 export function LoanDetailModal({
@@ -33,15 +35,40 @@ export function LoanDetailModal({
   borrower,
   payments,
   onRecordPayment,
+  onDeleteLoan,
 }: LoanDetailModalProps) {
   if (!loan) return null;
 
-  const loanPayments = payments.filter((p) => p.loan_id === loan.id && !p.deleted_at);
+  const confirmDelete = () => {
+    Alert.alert(
+      "Delete Loan Record?",
+      `Are you sure you want to delete this loan of ${formatPHP(loan.principal_minor)} for ${borrower?.name || "this borrower"}? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            onClose();
+            onDeleteLoan?.(loan);
+          },
+        },
+      ],
+    );
+  };
+
+  const loanPayments = payments.filter(
+    (p) => p.loan_id === loan.id && !p.deleted_at,
+  );
   const balance = calculateLoanBalance(loan, loanPayments);
 
-  const percentPaid = balance.totalOwedMinor > 0
-    ? Math.min(100, Math.round((balance.totalPaidMinor / balance.totalOwedMinor) * 100))
-    : 100;
+  const percentPaid =
+    balance.totalOwedMinor > 0
+      ? Math.min(
+          100,
+          Math.round((balance.totalPaidMinor / balance.totalOwedMinor) * 100),
+        )
+      : 100;
 
   // Due date calculation
   let dueInfo = { text: "No due date set", isOverdue: false };
@@ -123,36 +150,50 @@ export function LoanDetailModal({
               </Text>
             </Pressable>
 
-            {/* Status Pill */}
-            {balance.isPaid ? (
-              <View className="px-3 py-1 rounded-full bg-emerald-100 border border-emerald-300 flex-row items-center gap-1.5">
-                <Ionicons name="checkmark-circle" size={14} color="#166534" />
-                <Text className="text-xs font-black text-emerald-800 uppercase tracking-wider">
-                  Fully Paid
-                </Text>
-              </View>
-            ) : balance.isOverdue ? (
-              <View className="px-3 py-1 rounded-full bg-red-100 border border-red-300 flex-row items-center gap-1.5">
-                <Ionicons name="alert-circle" size={14} color="#B91C1C" />
-                <Text className="text-xs font-black text-red-700 uppercase tracking-wider">
-                  Overdue
-                </Text>
-              </View>
-            ) : balance.totalPaidMinor > 0 ? (
-              <View className="px-3 py-1 rounded-full bg-amber-100 border border-amber-300 flex-row items-center gap-1.5">
-                <Ionicons name="time" size={14} color="#92400E" />
-                <Text className="text-xs font-black text-amber-800 uppercase tracking-wider">
-                  Partial ({percentPaid}%)
-                </Text>
-              </View>
-            ) : (
-              <View className="px-3 py-1 rounded-full bg-emerald-100 border border-emerald-300 flex-row items-center gap-1.5">
-                <Ionicons name="ellipse" size={10} color="#166534" />
-                <Text className="text-xs font-black text-emerald-800 uppercase tracking-wider">
-                  Active
-                </Text>
-              </View>
-            )}
+            <View className="flex-row items-center gap-2">
+              {/* Status Pill */}
+              {balance.isPaid ? (
+                <View className="px-3 py-1 rounded-full bg-emerald-100 border border-emerald-300 flex-row items-center gap-1.5">
+                  <Ionicons name="checkmark-circle" size={14} color="#166534" />
+                  <Text className="text-xs font-black text-emerald-800 uppercase tracking-wider">
+                    Fully Paid
+                  </Text>
+                </View>
+              ) : balance.isOverdue ? (
+                <View className="px-3 py-1 rounded-full bg-red-100 border border-red-300 flex-row items-center gap-1.5">
+                  <Ionicons name="alert-circle" size={14} color="#B91C1C" />
+                  <Text className="text-xs font-black text-red-700 uppercase tracking-wider">
+                    Overdue
+                  </Text>
+                </View>
+              ) : balance.totalPaidMinor > 0 ? (
+                <View className="px-3 py-1 rounded-full bg-amber-100 border border-amber-300 flex-row items-center gap-1.5">
+                  <Ionicons name="time" size={14} color="#92400E" />
+                  <Text className="text-xs font-black text-amber-800 uppercase tracking-wider">
+                    Partial ({percentPaid}%)
+                  </Text>
+                </View>
+              ) : (
+                <View className="px-3 py-1 rounded-full bg-emerald-100 border border-emerald-300 flex-row items-center gap-1.5">
+                  <Ionicons name="ellipse" size={10} color="#166534" />
+                  <Text className="text-xs font-black text-emerald-800 uppercase tracking-wider">
+                    Active
+                  </Text>
+                </View>
+              )}
+
+              {/* Trash Action */}
+              {onDeleteLoan && (
+                <Pressable
+                  onPress={confirmDelete}
+                  hitSlop={8}
+                  className="w-8 h-8 rounded-full bg-red-50 border border-red-200 items-center justify-center active:bg-red-100"
+                  accessibilityLabel="Delete Loan"
+                >
+                  <Ionicons name="trash-outline" size={15} color="#DC2626" />
+                </Pressable>
+              )}
+            </View>
           </View>
 
           <ScrollView
@@ -169,7 +210,9 @@ export function LoanDetailModal({
                 <View className="flex-row items-center gap-3.5 flex-1 pr-2">
                   <View className="w-14 h-14 rounded-2xl bg-mint/20 border border-mint/30 items-center justify-center">
                     <Text className="text-mint font-black text-2xl">
-                      {borrower?.name ? borrower.name.charAt(0).toUpperCase() : "B"}
+                      {borrower?.name
+                        ? borrower.name.charAt(0).toUpperCase()
+                        : "B"}
                     </Text>
                   </View>
                   <View className="flex-1">
@@ -187,8 +230,15 @@ export function LoanDetailModal({
                     </View>
                     {borrower?.address ? (
                       <View className="flex-row items-center gap-1 mt-1">
-                        <Ionicons name="location-outline" size={13} color="#A8DCC5" />
-                        <Text className="text-xs text-mint/80 font-medium" numberOfLines={1}>
+                        <Ionicons
+                          name="location-outline"
+                          size={13}
+                          color="#A8DCC5"
+                        />
+                        <Text
+                          className="text-xs text-mint/80 font-medium"
+                          numberOfLines={1}
+                        >
                           {borrower.address}
                         </Text>
                       </View>
@@ -210,7 +260,9 @@ export function LoanDetailModal({
                     onPress={handleCall}
                   >
                     <Ionicons name="call" size={13} color="#173D35" />
-                    <Text className="text-forest-900 font-extrabold text-xs">Call</Text>
+                    <Text className="text-forest-900 font-extrabold text-xs">
+                      Call
+                    </Text>
                   </Pressable>
                 </View>
               )}
@@ -247,10 +299,16 @@ export function LoanDetailModal({
                 </View>
                 <View className="flex-row justify-between items-center px-0.5">
                   <Text className="text-[11px] font-semibold text-slate">
-                    Paid: <Text className="font-bold text-forest-900">{formatPHP(balance.totalPaidMinor)}</Text>
+                    Paid:{" "}
+                    <Text className="font-bold text-forest-900">
+                      {formatPHP(balance.totalPaidMinor)}
+                    </Text>
                   </Text>
                   <Text className="text-[11px] font-semibold text-slate">
-                    Remaining: <Text className="font-bold text-forest-900">{formatPHP(balance.remainingBalanceMinor)}</Text>
+                    Remaining:{" "}
+                    <Text className="font-bold text-forest-900">
+                      {formatPHP(balance.remainingBalanceMinor)}
+                    </Text>
                   </Text>
                 </View>
               </View>
@@ -293,21 +351,36 @@ export function LoanDetailModal({
               <View className="flex-row items-center justify-between py-2 border-b border-border/60">
                 <View className="flex-row items-center gap-2">
                   <View className="w-8 h-8 rounded-xl bg-forest-900/10 items-center justify-center">
-                    <Ionicons name="calculator-outline" size={16} color="#173D35" />
+                    <Ionicons
+                      name="calculator-outline"
+                      size={16}
+                      color="#173D35"
+                    />
                   </View>
-                  <Text className="text-xs font-bold text-ink">Interest Scheme</Text>
+                  <Text className="text-xs font-bold text-ink">
+                    Interest Scheme
+                  </Text>
                 </View>
                 <Text className="text-xs font-extrabold text-forest-900">
-                  {formatInterestTypeLabel(loan.interest_type, loan.interest_rate)}
+                  {formatInterestTypeLabel(
+                    loan.interest_type,
+                    loan.interest_rate,
+                  )}
                 </Text>
               </View>
 
               <View className="flex-row items-center justify-between py-2 border-b border-border/60">
                 <View className="flex-row items-center gap-2">
                   <View className="w-8 h-8 rounded-xl bg-forest-900/10 items-center justify-center">
-                    <Ionicons name="calendar-outline" size={16} color="#173D35" />
+                    <Ionicons
+                      name="calendar-outline"
+                      size={16}
+                      color="#173D35"
+                    />
                   </View>
-                  <Text className="text-xs font-bold text-ink">Date Borrowed</Text>
+                  <Text className="text-xs font-bold text-ink">
+                    Date Borrowed
+                  </Text>
                 </View>
                 <Text className="text-xs font-extrabold text-ink">
                   {loan.loan_date}
@@ -316,7 +389,9 @@ export function LoanDetailModal({
 
               <View className="flex-row items-center justify-between py-2">
                 <View className="flex-row items-center gap-2">
-                  <View className={`w-8 h-8 rounded-xl ${dueInfo.isOverdue ? "bg-red-100" : "bg-forest-900/10"} items-center justify-center`}>
+                  <View
+                    className={`w-8 h-8 rounded-xl ${dueInfo.isOverdue ? "bg-red-100" : "bg-forest-900/10"} items-center justify-center`}
+                  >
                     <Ionicons
                       name="alarm-outline"
                       size={16}
@@ -325,20 +400,28 @@ export function LoanDetailModal({
                   </View>
                   <View>
                     <Text className="text-xs font-bold text-ink">Due Date</Text>
-                    <Text className={`text-[10px] font-bold ${dueInfo.isOverdue ? "text-red-600" : "text-slate"}`}>
+                    <Text
+                      className={`text-[10px] font-bold ${dueInfo.isOverdue ? "text-red-600" : "text-slate"}`}
+                    >
                       {dueInfo.text}
                     </Text>
                   </View>
                 </View>
-                <Text className={`text-xs font-extrabold ${dueInfo.isOverdue ? "text-red-700" : "text-ink"}`}>
+                <Text
+                  className={`text-xs font-extrabold ${dueInfo.isOverdue ? "text-red-700" : "text-ink"}`}
+                >
                   {loan.due_date || "Open Ended"}
                 </Text>
               </View>
 
               {loan.notes && (
                 <View className="mt-1 p-3 rounded-2xl bg-paper/60 border border-border/80">
-                  <Text className="text-[11px] font-bold text-forest-900 mb-0.5">Notes</Text>
-                  <Text className="text-xs text-slate leading-4">{loan.notes}</Text>
+                  <Text className="text-[11px] font-bold text-forest-900 mb-0.5">
+                    Notes
+                  </Text>
+                  <Text className="text-xs text-slate leading-4">
+                    {loan.notes}
+                  </Text>
                 </View>
               )}
             </View>
@@ -361,7 +444,8 @@ export function LoanDetailModal({
                     No payments recorded yet
                   </Text>
                   <Text className="text-xs text-slate text-center">
-                    Payments made for this loan will appear here with dates and receipts.
+                    Payments made for this loan will appear here with dates and
+                    receipts.
                   </Text>
                 </View>
               ) : (
@@ -379,7 +463,10 @@ export function LoanDetailModal({
                           {formatPHP(p.amount_minor)}
                         </Text>
                         <Text className="text-xs text-slate mt-0.5">
-                          {p.payment_date} • {p.payment_method ? p.payment_method.toUpperCase() : "CASH"}
+                          {p.payment_date} •{" "}
+                          {p.payment_method
+                            ? p.payment_method.toUpperCase()
+                            : "CASH"}
                         </Text>
                         {p.notes && (
                           <Text className="text-[11px] text-slate-500 mt-0.5 italic">

@@ -29,6 +29,7 @@ import DashboardBg from "@/assets/images/DASHBOARD_BG.svg";
 import PautangBaiLogo from "@/assets/images/PAUTANGBAI_LOGO.svg";
 
 type FilterStatus = "all" | "active" | "overdue" | "paid";
+type SortOrder = "newest" | "oldest";
 
 export default function BorrowersScreen() {
   const db = useSQLiteContext();
@@ -39,6 +40,7 @@ export default function BorrowersScreen() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [refreshing, setRefreshing] = useState(false);
 
   // Modals
@@ -130,6 +132,22 @@ export default function BorrowersScreen() {
     );
   });
 
+  // Sort items (newest vs oldest)
+  const sortedAndFilteredItems = [...filteredItems].sort((a, b) => {
+    const dateA = new Date(a.loan.created_at || a.loan.loan_date).getTime();
+    const dateB = new Date(b.loan.created_at || b.loan.loan_date).getTime();
+    return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+  });
+
+  const handleDeleteLoan = async (loan: Loan) => {
+    try {
+      await loanHelper.softDelete(db, loan.id);
+      await loadData();
+    } catch (err) {
+      console.error("Failed to delete loan:", err);
+    }
+  };
+
   const handleOpenDetail = (loan: Loan) => {
     setSelectedLoanForDetail(loan);
     setIsDetailModalVisible(true);
@@ -185,7 +203,7 @@ export default function BorrowersScreen() {
 
         {/* Main List */}
         <FlatList
-          data={filteredItems}
+          data={sortedAndFilteredItems}
           keyExtractor={(item) => item.loan.id}
           ListHeaderComponent={
             <View className="mb-2 gap-3.5">
@@ -245,27 +263,48 @@ export default function BorrowersScreen() {
                 </View>
               </View>
 
-              {/* Search Bar */}
-              <View className="flex-row items-center px-3.5 py-2.5 rounded-2xl bg-white border border-border shadow-xs">
-                <Ionicons
-                  name="search"
-                  size={18}
-                  color="#66716D"
-                  className="mr-2"
-                />
-                <TextInput
-                  placeholder="Search by name, phone, or loan notes..."
-                  placeholderTextColor="#9CA3AF"
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  className="flex-1 text-sm text-ink"
-                  clearButtonMode="while-editing"
-                />
-                {searchQuery.length > 0 && (
-                  <Pressable onPress={() => setSearchQuery("")} hitSlop={8}>
-                    <Ionicons name="close-circle" size={18} color="#66716D" />
-                  </Pressable>
-                )}
+              {/* Search Bar + Sort Toggle */}
+              <View className="flex-row items-center gap-2">
+                <View className="flex-1 flex-row items-center px-3.5 py-2.5 rounded-2xl bg-white border border-border shadow-xs">
+                  <Ionicons
+                    name="search"
+                    size={18}
+                    color="#66716D"
+                    className="mr-2"
+                  />
+                  <TextInput
+                    placeholder="Search name, phone, notes..."
+                    placeholderTextColor="#9CA3AF"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    className="flex-1 text-sm text-ink"
+                    clearButtonMode="while-editing"
+                  />
+                  {searchQuery.length > 0 && (
+                    <Pressable onPress={() => setSearchQuery("")} hitSlop={8}>
+                      <Ionicons name="close-circle" size={18} color="#66716D" />
+                    </Pressable>
+                  )}
+                </View>
+
+                {/* Sort Toggle Button */}
+                <Pressable
+                  onPress={() =>
+                    setSortOrder((prev) => (prev === "newest" ? "oldest" : "newest"))
+                  }
+                  className="px-3 py-2.5 rounded-2xl bg-white border border-border shadow-xs flex-row items-center gap-1 active:bg-slate-50 min-h-[46px]"
+                  accessibilityRole="button"
+                  accessibilityLabel={`Sort: ${sortOrder === "newest" ? "Newest First" : "Oldest First"}`}
+                >
+                  <Ionicons
+                    name={sortOrder === "newest" ? "arrow-down" : "arrow-up"}
+                    size={15}
+                    color="#173D35"
+                  />
+                  <Text className="text-[11px] font-black text-forest-900 uppercase tracking-tight">
+                    {sortOrder === "newest" ? "New" : "Old"}
+                  </Text>
+                </Pressable>
               </View>
 
               {/* Filter Chips */}
@@ -609,6 +648,7 @@ export default function BorrowersScreen() {
             setSelectedLoanForPay(loan);
             setIsPayModalVisible(true);
           }}
+          onDeleteLoan={handleDeleteLoan}
         />
 
         {/* Payment Form Modal */}

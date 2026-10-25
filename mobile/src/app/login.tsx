@@ -43,7 +43,7 @@ export default function LoginScreen({
   onNavigateToRegister,
 }: LoginScreenProps = {}) {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, continueOffline } = useAuth();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -122,10 +122,9 @@ export default function LoginScreen({
           });
         } else if (res.status === 0 || !res.status) {
           setError({
-            title: "Connection Failed",
+            title: "Cannot Sign In — No Internet Connection",
             message:
-              res.error ||
-              "Unable to connect to the server. Check your network or adjust the server address.",
+              "You are currently offline. Please connect to the internet or Wi-Fi to sign in, or tap 'Continue Offline' below.",
             isNetwork: true,
           });
         } else {
@@ -141,10 +140,9 @@ export default function LoginScreen({
       console.error("[Auth Login Exception]:", err);
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setError({
-        title: "Connection Error",
+        title: "Cannot Sign In — No Internet Connection",
         message:
-          err?.message ||
-          "Unable to connect to the server. Check your network or server URL configuration.",
+          "You are currently offline. Please connect to the internet or Wi-Fi to sign in, or tap 'Continue Offline' below.",
         isNetwork: true,
       });
     } finally {
@@ -261,26 +259,43 @@ export default function LoginScreen({
 
                       {/* Action button if network error */}
                       {error.isNetwork && (
-                        <Pressable
-                          onPress={() => {
-                            LayoutAnimation.configureNext(
-                              LayoutAnimation.Presets.easeInEaseOut,
-                            );
-                            setShowServerConfig(true);
-                          }}
-                          className="flex-row items-center gap-1.5 mt-2 self-start py-1 px-2.5 rounded-lg bg-[#FEE2E2] active:bg-[#FECACA]"
-                          accessibilityRole="button"
-                          accessibilityLabel="Configure server URL"
-                        >
-                          <Ionicons
-                            name="server-outline"
-                            size={13}
-                            color="#991B1B"
-                          />
-                          <Text className="text-[11px] font-bold text-[#991B1B]">
-                            Configure Server Settings
-                          </Text>
-                        </Pressable>
+                        <View className="flex-row items-center gap-2 mt-2 flex-wrap">
+                          <Pressable
+                            onPress={() => continueOffline()}
+                            className="flex-row items-center gap-1.5 py-1.5 px-3 rounded-lg bg-emerald-800 active:bg-emerald-900"
+                            accessibilityRole="button"
+                            accessibilityLabel="Continue offline"
+                          >
+                            <Ionicons
+                              name="flash-outline"
+                              size={13}
+                              color="#FFFFFF"
+                            />
+                            <Text className="text-[11px] font-black text-white">
+                              Continue Offline
+                            </Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => {
+                              LayoutAnimation.configureNext(
+                                LayoutAnimation.Presets.easeInEaseOut,
+                              );
+                              setShowServerConfig(true);
+                            }}
+                            className="flex-row items-center gap-1.5 py-1.5 px-2.5 rounded-lg bg-[#FEE2E2] active:bg-[#FECACA]"
+                            accessibilityRole="button"
+                            accessibilityLabel="Configure server URL"
+                          >
+                            <Ionicons
+                              name="server-outline"
+                              size={13}
+                              color="#991B1B"
+                            />
+                            <Text className="text-[11px] font-bold text-[#991B1B]">
+                              Server Settings
+                            </Text>
+                          </Pressable>
+                        </View>
                       )}
                     </View>
 
@@ -421,13 +436,33 @@ export default function LoginScreen({
                     ? onNavigateToRegister()
                     : router.push("/register")
                 }
-                className="py-2.5 px-4 min-h-[44px] items-center justify-center"
+                className="py-2 px-4 min-h-[44px] items-center justify-center"
               >
                 <Text className="text-xs text-white/90 font-bold">
                   Don't have an account yet?{" "}
                   <Text className="font-black text-white underline">
                     Register here
                   </Text>
+                </Text>
+              </Pressable>
+
+              {/* Continue Offline Option */}
+              <View className="w-full flex-row items-center gap-2 my-2">
+                <View className="flex-1 h-px bg-white/20" />
+                <Text className="text-[10px] font-extrabold text-white/60 uppercase tracking-widest">
+                  OR
+                </Text>
+                <View className="flex-1 h-px bg-white/20" />
+              </View>
+
+              <Pressable
+                onPress={() => continueOffline()}
+                disabled={isSubmitting}
+                className="w-full min-h-[48px] rounded-2xl bg-white/15 border border-white/30 items-center justify-center flex-row gap-2 active:bg-white/25 mb-3"
+              >
+                <Ionicons name="flash-outline" size={17} color="#FFFFFF" />
+                <Text className="text-white font-extrabold text-xs tracking-wide">
+                  Continue Offline (No Account)
                 </Text>
               </Pressable>
 

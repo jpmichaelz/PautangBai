@@ -27,6 +27,7 @@ import {
   addMonthsSafe,
 } from "@/services/date/dateUtils";
 import { Frog } from "@/components/frog";
+import { FeedbackModal } from "@/components/feedback-modal";
 
 interface LoanFormModalProps {
   visible: boolean;
@@ -60,6 +61,13 @@ export function LoanFormModal({
   );
   const [loanNotes, setLoanNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    visible: boolean;
+    type: "success" | "error";
+    title: string;
+    message: string;
+    savedLoan?: Loan;
+  } | null>(null);
 
   useEffect(() => {
     if (initialBorrowerId) {
@@ -85,6 +93,16 @@ export function LoanFormModal({
     if (isSubmitting) return;
     resetForm();
     onClose();
+  };
+
+  const handleFeedbackClose = () => {
+    const saved = feedback?.savedLoan;
+    setFeedback(null);
+    resetForm();
+    onClose();
+    if (saved) {
+      onSuccess?.(saved);
+    }
   };
 
   // Calculations
@@ -209,12 +227,22 @@ export function LoanFormModal({
         server_version: null,
       });
 
-      resetForm();
-      onClose();
-      onSuccess?.(savedLoan);
+      const borrowerObj = borrowers.find((b) => b.id === selectedBorrowerId);
+      setFeedback({
+        visible: true,
+        type: "success",
+        title: "Loan Recorded!",
+        message: `${formatPHP(savedLoan.principal_minor)} loan recorded for ${borrowerObj?.name || "borrower"}.`,
+        savedLoan,
+      });
     } catch (err) {
       console.error("Failed to create loan:", err);
-      Alert.alert("Error", "Failed to create loan. Please try again.");
+      setFeedback({
+        visible: true,
+        type: "error",
+        title: "Failed to Create Loan",
+        message: "Unable to record loan right now. Please try again.",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -603,6 +631,18 @@ export function LoanFormModal({
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {feedback && (
+        <FeedbackModal
+          visible={feedback.visible}
+          type={feedback.type}
+          mood={feedback.type === "success" ? "celebrate" : "thinking"}
+          title={feedback.title}
+          message={feedback.message}
+          buttonText={feedback.type === "success" ? "Done" : "Try Again"}
+          onClose={handleFeedbackClose}
+        />
+      )}
     </Modal>
   );
 }

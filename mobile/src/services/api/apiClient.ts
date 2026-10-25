@@ -100,18 +100,23 @@ async function request<T = any>(
       data: json,
     };
   } catch (err: any) {
-    const isTimeout = err?.name === 'AbortError';
-    const errText = isTimeout
-      ? 'Connection timed out (10s)'
+    const isCanceled =
+      err?.name === 'AbortError' ||
+      err?.message?.toLowerCase().includes('canceled') ||
+      err?.message?.toLowerCase().includes('aborted');
+    const errText = isCanceled
+      ? 'Request canceled'
       : err?.message || 'Unable to connect to server';
 
-    console.error(`[API Network Error] ${method} ${url} -> ${errText}`);
+    if (!isCanceled) {
+      console.error(`[API Network Error] ${method} ${url} -> ${errText}`);
+    }
 
     return {
       ok: false,
       status: 0,
-      error: isTimeout
-        ? 'Connection timed out'
+      error: isCanceled
+        ? 'Request canceled'
         : `Unable to connect to server at ${baseUrl}. (${errText})`,
     };
   }

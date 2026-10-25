@@ -42,7 +42,7 @@ export default function RegisterScreen({
   onNavigateToLogin,
 }: RegisterScreenProps = {}) {
   const router = useRouter();
-  const { register } = useAuth();
+  const { register, continueOffline } = useAuth();
 
   // Form Fields
   const [username, setUsername] = useState("");
@@ -129,10 +129,9 @@ export default function RegisterScreen({
           });
         } else if (res.status === 0 || !res.status) {
           setError({
-            title: "Connection Failed",
+            title: "Cannot Register — No Internet Connection",
             message:
-              res.error ||
-              "Unable to reach the server. Make sure your device has network access.",
+              "You are currently offline. Please connect to the internet or Wi-Fi to create an account, or tap 'Continue Offline' below.",
             isNetwork: true,
           });
         } else {
@@ -149,10 +148,9 @@ export default function RegisterScreen({
       console.error("[Auth Register Exception]:", err);
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setError({
-        title: "Connection Error",
+        title: "Cannot Register — No Internet Connection",
         message:
-          err?.message ||
-          "Unable to connect to the server. Check your network connection.",
+          "You are currently offline. Please connect to the internet or Wi-Fi to create an account, or tap 'Continue Offline' below.",
         isNetwork: true,
       });
     } finally {
@@ -264,6 +262,25 @@ export default function RegisterScreen({
                     <Text className="text-[12px] text-[#7F1D1D] mt-0.5 leading-[17px] font-medium">
                       {error.message}
                     </Text>
+
+                    {/* Action button if network error */}
+                    {error.isNetwork && (
+                      <Pressable
+                        onPress={() => continueOffline()}
+                        className="flex-row items-center gap-1.5 mt-2 self-start py-1.5 px-3 rounded-lg bg-emerald-800 active:bg-emerald-900"
+                        accessibilityRole="button"
+                        accessibilityLabel="Continue offline"
+                      >
+                        <Ionicons
+                          name="flash-outline"
+                          size={13}
+                          color="#FFFFFF"
+                        />
+                        <Text className="text-[11px] font-black text-white">
+                          Continue Offline
+                        </Text>
+                      </Pressable>
+                    )}
                   </View>
 
                   {/* Dismiss Button */}
@@ -454,13 +471,33 @@ export default function RegisterScreen({
               onPress={() =>
                 onNavigateToLogin ? onNavigateToLogin() : router.push("/login")
               }
-              className="py-2.5 px-4 min-h-[44px] items-center justify-center"
+              className="py-2 px-4 min-h-[44px] items-center justify-center"
             >
               <Text className="text-xs text-white/90 font-bold">
                 Already have an account?{" "}
                 <Text className="font-black text-white underline">
                   Log In
                 </Text>
+              </Text>
+            </Pressable>
+
+            {/* Continue Offline Option */}
+            <View className="w-full flex-row items-center gap-2 my-2">
+              <View className="flex-1 h-px bg-white/20" />
+              <Text className="text-[10px] font-extrabold text-white/60 uppercase tracking-widest">
+                OR
+              </Text>
+              <View className="flex-1 h-px bg-white/20" />
+            </View>
+
+            <Pressable
+              onPress={() => continueOffline()}
+              disabled={isSubmitting}
+              className="w-full min-h-[48px] rounded-2xl bg-white/15 border border-white/30 items-center justify-center flex-row gap-2 active:bg-white/25 mb-3"
+            >
+              <Ionicons name="flash-outline" size={17} color="#FFFFFF" />
+              <Text className="text-white font-extrabold text-xs tracking-wide">
+                Continue Offline (No Account)
               </Text>
             </Pressable>
           </View>

@@ -28,7 +28,7 @@ import PautangBaiLogo from "@/assets/images/PAUTANGBAI_LOGO.svg";
 export default function SettingsScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
-  const { user, isLoggedIn, logout } = useAuth();
+  const { user, isLoggedIn, logout, resetToAuth } = useAuth();
   const [stats, setStats] = useState({ borrowers: 0, loans: 0, payments: 0 });
   const [syncStats, setSyncStats] = useState({
     pending: 0,
@@ -433,7 +433,7 @@ export default function SettingsScreen() {
                 </View>
               </View>
               <Pressable
-                onPress={() => router.push("/login")}
+                onPress={() => resetToAuth()}
                 className="min-h-[46px] rounded-2xl bg-forest-900 items-center justify-center flex-row gap-2 active:bg-forest-900/90 shadow-xs"
               >
                 <Ionicons name="log-in-outline" size={18} color="#FFFFFF" />

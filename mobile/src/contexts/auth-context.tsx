@@ -7,7 +7,11 @@ import { ApiResponse } from "@/services/api/apiClient";
 interface AuthContextType {
   user: AuthUser | null;
   isLoggedIn: boolean;
+  isGuest: boolean;
+  canAccessApp: boolean;
   isLoading: boolean;
+  continueOffline: () => Promise<void>;
+  resetToAuth: () => Promise<void>;
   login: (username: string, password: string) => Promise<ApiResponse>;
   register: (
     username: string,
@@ -22,6 +26,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -29,16 +34,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const cachedUser = await tokenStorage.getUser();
         const token = await tokenStorage.getToken();
+        const guest = await tokenStorage.isGuestMode();
 
         if (token && cachedUser) {
           setUser(cachedUser);
+          setIsGuest(false);
           // Background verify / refresh
           authService.getMe().then((freshUser) => {
             if (freshUser) setUser(freshUser);
           });
         } else if (token) {
           const freshUser = await authService.getMe();
-          if (freshUser) setUser(freshUser);
+          if (freshUser) {
+            setUser(freshUser);
+            setIsGuest(false);
+          }
+        } else if (guest) {
+          setIsGuest(true);
         }
       } catch (err) {
         console.warn("Auth initialization error:", err);
@@ -50,6 +62,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAuth();
   }, []);
 
+  const continueOffline = async (): Promise<void> => {
+    await tokenStorage.setGuestMode(true);
+    setIsGuest(true);
+  };
+
+  const resetToAuth = async (): Promise<void> => {
+    await tokenStorage.setGuestMode(false);
+    setIsGuest(false);
+  };
+
   const login = async (
     username: string,
     password: string,
@@ -60,6 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (res.ok && res.data?.user) {
       setUser(res.data.user);
+      setIsGuest(false);
+      await tokenStorage.setGuestMode(false);
     }
 
     return res;
@@ -76,6 +100,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (res.ok && res.data?.user) {
       setUser(res.data.user);
+      setIsGuest(false);
+      await tokenStorage.setGuestMode(false);
     }
 
     return res;
@@ -84,7 +110,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async (): Promise<void> => {
     setIsLoading(true);
     await authService.logout();
+    await tokenStorage.clear();
     setUser(null);
+    setIsGuest(false);
     setIsLoading(false);
   };
 
@@ -100,7 +128,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         isLoggedIn: !!user,
+        isGuest,
+        canAccessApp: !!user || isGuest,
         isLoading,
+        continueOffline,
+        resetToAuth,
         login,
         register,
         logout,

@@ -5,9 +5,15 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "pautangbai",
-    "userInterfaceStyle": "light",
+    "icon": "./assets/images/icon.png",
     "android": {
       "package": "com.pautangbai.app",
+      "versionCode": 2,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#173D35"
+      },
+      "usesCleartextTraffic": true,
       "predictiveBackGestureEnabled": false
     },
     "androidNavigationBar": {
@@ -30,6 +36,16 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "b1e1e9b5-579e-45bd-8bb0-624a69ad6df1"
+      }
     }
   }
 }

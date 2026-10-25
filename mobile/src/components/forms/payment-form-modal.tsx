@@ -22,6 +22,7 @@ import {
 import { calculateLoanBalance } from "@/services/balance/calculateBalance";
 import { getLocalDateString } from "@/services/date/dateUtils";
 import { Frog } from "@/components/frog";
+import { FeedbackModal } from "@/components/feedback-modal";
 import { generateUUID } from "@/services/uuid";
 
 
@@ -50,6 +51,12 @@ export function PaymentFormModal({
   );
   const [paymentNotes, setPaymentNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    visible: boolean;
+    type: "success" | "error";
+    title: string;
+    message: string;
+  } | null>(null);
 
   const resetForm = () => {
     setPayAmountInput("");
@@ -62,6 +69,16 @@ export function PaymentFormModal({
     if (isSubmitting) return;
     resetForm();
     onClose();
+  };
+
+  const handleFeedbackClose = () => {
+    const wasSuccess = feedback?.type === "success";
+    setFeedback(null);
+    resetForm();
+    onClose();
+    if (wasSuccess) {
+      onSuccess?.();
+    }
   };
 
   const handleSave = async () => {
@@ -107,16 +124,20 @@ export function PaymentFormModal({
         sync_status: "pending",
       });
 
-      resetForm();
-      onClose();
-      onSuccess?.();
-      Alert.alert(
-        "Payment Recorded",
-        `Recorded ${formatPHP(payAmountMinor)} successfully.`,
-      );
+      setFeedback({
+        visible: true,
+        type: "success",
+        title: "Payment Recorded!",
+        message: `Successfully received ${formatPHP(payAmountMinor)} for ${borrowerName || "this loan"}.`,
+      });
     } catch (err) {
       console.error("Failed to record payment:", err);
-      Alert.alert("Error", "Failed to record payment. Please try again.");
+      setFeedback({
+        visible: true,
+        type: "error",
+        title: "Failed to Record Payment",
+        message: "Unable to record payment right now. Please try again.",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -236,6 +257,18 @@ export function PaymentFormModal({
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {feedback && (
+        <FeedbackModal
+          visible={feedback.visible}
+          type={feedback.type}
+          mood={feedback.type === "success" ? "celebrate" : "thinking"}
+          title={feedback.title}
+          message={feedback.message}
+          buttonText={feedback.type === "success" ? "Done" : "Try Again"}
+          onClose={handleFeedbackClose}
+        />
+      )}
     </Modal>
   );
 }

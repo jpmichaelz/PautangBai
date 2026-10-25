@@ -74,7 +74,7 @@ const CustomDarkTheme = {
 SplashScreen.preventAutoHideAsync();
 
 function AppNavigation() {
-  const { isLoggedIn, isLoading } = useAuth();
+  const { canAccessApp, isLoading } = useAuth();
   const db = useSQLiteContext();
   useAutoSync(db);
 
@@ -85,7 +85,7 @@ function AppNavigation() {
     return <AnimatedSplashOverlay />;
   }
 
-  if (!isLoggedIn) {
+  if (!canAccessApp) {
     return (
       <View style={{ flex: 1, overflow: "hidden" }}>
         <Animated.View
