@@ -15,7 +15,7 @@ import { borrowerHelper } from "@/db-helpers/borrowers";
 import { loanHelper } from "@/db-helpers/loans";
 import { paymentHelper } from "@/db-helpers/payments";
 import { Borrower, Loan, Payment } from "@/types/database";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useFocusEffect } from "expo-router";
 import { formatPHP } from "@/services/interest/calculateInterest";
 import { calculateLoanBalance } from "@/services/balance/calculateBalance";
 import { getLocalDateString } from "@/services/date/dateUtils";
@@ -96,6 +96,12 @@ export default function BorrowersScreen() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData]),
+  );
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -778,7 +784,10 @@ export default function BorrowersScreen() {
         {/* Add Borrower Modal */}
         <BorrowerFormModal
           visible={isBorrowerModalVisible}
-          onClose={() => setIsBorrowerModalVisible(false)}
+          onClose={() => {
+            setIsBorrowerModalVisible(false);
+            loadData();
+          }}
           onSuccess={() => loadData()}
         />
 
@@ -790,6 +799,7 @@ export default function BorrowersScreen() {
           onClose={() => {
             setIsLoanModalVisible(false);
             setSelectedBorrowerForLoan(null);
+            loadData();
           }}
           onSuccess={() => loadData()}
           onAddBorrowerPress={() => {
@@ -801,7 +811,10 @@ export default function BorrowersScreen() {
         {/* Loan Detail Modal */}
         <LoanDetailModal
           visible={isDetailModalVisible}
-          onClose={() => setIsDetailModalVisible(false)}
+          onClose={() => {
+            setIsDetailModalVisible(false);
+            loadData();
+          }}
           loan={selectedLoanForDetail}
           borrower={
             selectedLoanForDetail
@@ -826,7 +839,10 @@ export default function BorrowersScreen() {
               : undefined
           }
           allPayments={payments}
-          onClose={() => setIsPayModalVisible(false)}
+          onClose={() => {
+            setIsPayModalVisible(false);
+            loadData();
+          }}
           onSuccess={() => loadData()}
         />
       </SafeAreaView>

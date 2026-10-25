@@ -18,6 +18,7 @@ import { paymentHelper } from "@/db-helpers/payments";
 import { Loan, Payment } from "@/types/database";
 import { formatPHP } from "@/services/interest/calculateInterest";
 import { Frog } from "@/components/frog";
+import { useFocusEffect } from "expo-router";
 import DashboardBg from "@/assets/images/DASHBOARD_BG.svg";
 import PautangBaiLogo from "@/assets/images/PAUTANGBAI_LOGO.svg";
 
@@ -112,6 +113,12 @@ export default function ActivityScreen() {
   useEffect(() => {
     loadActivities();
   }, [loadActivities]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadActivities();
+    }, [loadActivities]),
+  );
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);

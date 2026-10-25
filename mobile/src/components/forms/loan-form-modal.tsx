@@ -49,6 +49,8 @@ export function LoanFormModal({
 }: LoanFormModalProps) {
   const db = useSQLiteContext();
 
+  const [step, setStep] = useState<1 | 2>(initialBorrowerId ? 2 : 1);
+  const [borrowerSearch, setBorrowerSearch] = useState("");
   const [selectedBorrowerId, setSelectedBorrowerId] = useState(
     initialBorrowerId || "",
   );
@@ -73,13 +75,19 @@ export function LoanFormModal({
   useEffect(() => {
     if (initialBorrowerId) {
       setSelectedBorrowerId(initialBorrowerId);
+      setStep(2);
     } else if (borrowers.length === 1 && !selectedBorrowerId) {
       setSelectedBorrowerId(borrowers[0].id);
+      setStep(2);
+    } else if (!selectedBorrowerId) {
+      setStep(1);
     }
   }, [initialBorrowerId, borrowers, selectedBorrowerId]);
 
   const resetForm = () => {
     setSelectedBorrowerId("");
+    setStep(1);
+    setBorrowerSearch("");
     setPrincipalInput("");
     setInterestType("none");
     setFixedFeeInput("");
@@ -165,6 +173,18 @@ export function LoanFormModal({
     }
   }
   const totalLoanDueMinor = principalMinor + calculatedFeeMinor;
+
+  const selectedBorrower = borrowers.find((b) => b.id === selectedBorrowerId);
+  const filteredBorrowers = borrowers.filter((b) => {
+    const q = borrowerSearch.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      b.name.toLowerCase().includes(q) ||
+      (b.phone && b.phone.includes(q)) ||
+      (b.notes && b.notes.toLowerCase().includes(q)) ||
+      (b.address && b.address.toLowerCase().includes(q))
+    );
+  });
 
   const handleSave = async () => {
     if (isSubmitting) return;
@@ -262,85 +282,187 @@ export function LoanFormModal({
         className="flex-1 bg-paper relative"
       >
         {/* Top Back Action Bar */}
-        <View className="px-4 pt-3 pb-1 flex-row items-center">
+        <View className="px-4 pt-3 pb-1 flex-row items-center justify-between">
           <Pressable
-            onPress={handleClose}
+            onPress={step === 2 && !initialBorrowerId ? () => setStep(1) : handleClose}
             hitSlop={12}
             className="flex-row items-center gap-1.5 py-1.5 px-2 -ml-2 rounded-xl active:bg-white/60"
             accessibilityLabel="Back"
             accessibilityRole="button"
           >
             <Ionicons name="arrow-back" size={22} color="#173D35" />
-            <Text className="text-sm font-bold text-forest-900">Back</Text>
-          </Pressable>
-        </View>
-
-        <ScrollView
-          className="flex-1 px-5"
-          contentContainerStyle={{ paddingTop: 8, paddingBottom: 40 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Organic Mascot Header */}
-          <View className="items-center mb-6">
-            <Frog mood="newLoan" size={130} />
-            <Text className="text-2xl font-black text-forest-900 mt-3 text-center tracking-tight">
-              Bag-ong Pautang
+            <Text className="text-sm font-bold text-forest-900">
+              {step === 2 && !initialBorrowerId ? "Change Borrower" : "Back"}
             </Text>
-            <Text className="text-sm font-medium text-slate-700 mt-1 text-center">
-              Ibutang ang kantidad ug tubo sa pautang.
+          </Pressable>
+
+          <View className="px-2.5 py-1 rounded-full bg-forest-900/10">
+            <Text className="text-[10px] font-black text-forest-900 tracking-wider">
+              {step === 1 ? "STEP 1 OF 2" : "STEP 2 OF 2"}
             </Text>
           </View>
-          {/* Borrower selector */}
-          <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
-            Mangungutang / Borrower *
-          </Text>
-          {borrowers.length === 0 ? (
-            <View className="mb-4 p-5 rounded-2xl bg-paper border border-dashed border-border items-center justify-center gap-2">
-              <Frog mood="borrower" size={60} />
-              <Text className="text-xs font-semibold text-slate text-center">
-                Walay mangungutang nga nakit-an. Kinahanglan magdugang una og
-                mangungutang.
+        </View>
+
+        {step === 1 ? (
+          <ScrollView
+            className="flex-1 px-5"
+            contentContainerStyle={{ paddingTop: 8, paddingBottom: 40 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Step 1 Header */}
+            <View className="items-center mb-5">
+              <Frog mood="borrower" size={105} />
+              <Text className="text-2xl font-black text-forest-900 mt-2 text-center tracking-tight">
+                Kinsa ang Mangungutang?
               </Text>
+              <Text className="text-xs font-medium text-slate-600 mt-1 text-center">
+                Pilia o pangitaa ang tawo nga tagaan og bag-ong pautang.
+              </Text>
+            </View>
+
+            {/* Search Bar */}
+            <View className="flex-row items-center px-3.5 py-2.5 rounded-2xl bg-white border border-border shadow-xs mb-3">
+              <Ionicons name="search" size={18} color="#66716D" style={{ marginRight: 8 }} />
+              <TextInput
+                placeholder="Search by name, phone, or tag..."
+                placeholderTextColor="#9CA3AF"
+                value={borrowerSearch}
+                onChangeText={setBorrowerSearch}
+                className="flex-1 text-sm text-ink"
+              />
+              {borrowerSearch.length > 0 && (
+                <Pressable onPress={() => setBorrowerSearch("")} hitSlop={8}>
+                  <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+                </Pressable>
+              )}
+            </View>
+
+            {/* Quick Add Borrower Button */}
+            <Pressable
+              onPress={() => {
+                onClose();
+                onAddBorrowerPress?.();
+              }}
+              className="flex-row items-center justify-between p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 mb-4 active:bg-emerald-100"
+            >
+              <View className="flex-row items-center gap-2.5">
+                <View className="w-8 h-8 rounded-full bg-forest items-center justify-center">
+                  <Ionicons name="person-add" size={15} color="#FFFFFF" />
+                </View>
+                <View>
+                  <Text className="text-xs font-black text-forest-900">
+                    + Dugang Bag-ong Mangungutang
+                  </Text>
+                  <Text className="text-[11px] text-emerald-800">
+                    Wala pa sa listahan? Ilista una diri.
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#15803D" />
+            </Pressable>
+
+            {/* Borrower List */}
+            <View className="gap-2.5">
+              {filteredBorrowers.length === 0 ? (
+                <View className="p-8 rounded-2xl bg-white border border-border items-center justify-center gap-2 mt-2">
+                  <Frog mood="searchEmpty" size={68} />
+                  <Text className="text-sm font-bold text-forest-900 text-center">
+                    Walay nakit-an nga mangungutang
+                  </Text>
+                  <Text className="text-xs text-slate text-center">
+                    {borrowerSearch
+                      ? `Walay motakdo sa "${borrowerSearch}".`
+                      : "Wala pay narekord nga mangungutang."}
+                  </Text>
+                </View>
+              ) : (
+                filteredBorrowers.map((b) => {
+                  const tagMatch = b.notes?.match(/^\[(.*?)\]/);
+                  const tag = tagMatch ? tagMatch[1] : null;
+
+                  return (
+                    <Pressable
+                      key={b.id}
+                      onPress={() => {
+                        setSelectedBorrowerId(b.id);
+                        setStep(2);
+                      }}
+                      className="flex-row items-center justify-between p-3.5 rounded-2xl bg-white border border-border active:border-forest active:bg-forest/5 shadow-xs"
+                    >
+                      <View className="flex-row items-center gap-3 flex-1 mr-2">
+                        <View className="w-10 h-10 rounded-full bg-forest-900/10 items-center justify-center">
+                          <Ionicons name="person" size={18} color="#173D35" />
+                        </View>
+                        <View className="flex-1">
+                          <View className="flex-row items-center gap-2">
+                            <Text
+                              numberOfLines={1}
+                              className="text-base font-extrabold text-forest-900"
+                            >
+                              {b.name}
+                            </Text>
+                            {tag && (
+                              <View className="px-2 py-0.5 rounded bg-emerald-100 border border-emerald-200">
+                                <Text className="text-[10px] font-bold text-emerald-800">
+                                  {tag}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text numberOfLines={1} className="text-xs text-slate mt-0.5">
+                            {b.phone || b.address || "Active Borrower"}
+                          </Text>
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color="#287A63" />
+                    </Pressable>
+                  );
+                })
+              )}
+            </View>
+          </ScrollView>
+        ) : (
+          <ScrollView
+            className="flex-1 px-5"
+            contentContainerStyle={{ paddingTop: 8, paddingBottom: 40 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Header Mascot */}
+            <View className="items-center mb-4">
+              <Frog mood="newLoan" size={105} />
+              <Text className="text-2xl font-black text-forest-900 mt-2 text-center tracking-tight">
+                Bag-ong Pautang
+              </Text>
+              <Text className="text-xs font-medium text-slate-700 mt-0.5 text-center">
+                Ibutang ang kantidad ug tubo sa pautang.
+              </Text>
+            </View>
+
+            {/* Selected Borrower Banner Card */}
+            <View className="flex-row items-center justify-between p-3.5 rounded-2xl bg-white border border-forest/30 shadow-xs mb-4">
+              <View className="flex-row items-center gap-3 flex-1 mr-2">
+                <View className="w-10 h-10 rounded-full bg-emerald-100 items-center justify-center">
+                  <Ionicons name="checkmark-circle" size={20} color="#15803D" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-[10px] font-black text-forest-900/60 uppercase tracking-wider">
+                    Mangungutang / Borrower
+                  </Text>
+                  <Text numberOfLines={1} className="text-base font-black text-forest-900 mt-0.5">
+                    {selectedBorrower?.name || "Selected Borrower"}
+                  </Text>
+                  <Text numberOfLines={1} className="text-xs text-slate">
+                    {selectedBorrower?.phone || selectedBorrower?.address || "Ready for loan"}
+                  </Text>
+                </View>
+              </View>
               <Pressable
-                onPress={() => {
-                  onClose();
-                  onAddBorrowerPress?.();
-                }}
-                className="flex-row items-center gap-1.5 px-4 py-2 rounded-full bg-forest active:opacity-90 mt-1"
+                onPress={() => setStep(1)}
+                className="py-1.5 px-3 rounded-full bg-forest-900/10 active:bg-forest-900/20"
               >
-                <Ionicons name="person-add" size={15} color="#FFFFFF" />
-                <Text className="text-xs font-bold text-white">
-                  + Dugang Mangungutang
-                </Text>
+                <Text className="text-xs font-bold text-forest-900">Ilisi / Change</Text>
               </Pressable>
             </View>
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              className="mb-4"
-            >
-              {borrowers.map((b) => (
-                <Pressable
-                  key={b.id}
-                  className={`py-2 px-3.5 rounded-full border mr-2 ${
-                    selectedBorrowerId === b.id
-                      ? "bg-forest-900 border-forest-900"
-                      : "bg-white border-border"
-                  }`}
-                  onPress={() => setSelectedBorrowerId(b.id)}
-                >
-                  <Text
-                    className={`text-xs font-semibold ${
-                      selectedBorrowerId === b.id ? "text-white" : "text-ink"
-                    }`}
-                  >
-                    {b.name}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          )}
 
           {/* Principal Amount */}
           <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
@@ -635,6 +757,7 @@ export function LoanFormModal({
             </Text>
           </Pressable>
         </ScrollView>
+        )}
 
         {feedback && (
           <FeedbackModal

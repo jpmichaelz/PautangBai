@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { borrowerHelper } from "@/db-helpers/borrowers";
 import { loanHelper } from "@/db-helpers/loans";
 import { paymentHelper } from "@/db-helpers/payments";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Frog } from "@/components/frog";
 import { useAuth } from "@/contexts/auth-context";
 import { outboxHelper } from "@/services/sync/outbox";
@@ -39,25 +39,32 @@ export default function SettingsScreen() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
 
-  useEffect(() => {
-    async function loadStats() {
-      try {
-        const [b, l, p, s, lastSync] = await Promise.all([
-          borrowerHelper.getAll(db),
-          loanHelper.getAll(db),
-          paymentHelper.getAll(db),
-          outboxHelper.getStats(db),
-          syncStateHelper.get(db, "last_synced_at"),
-        ]);
-        setStats({ borrowers: b.length, loans: l.length, payments: p.length });
-        setSyncStats(s);
-        setLastSyncedAt(lastSync);
-      } catch (err) {
-        console.error("Failed to load stats:", err);
-      }
+  const loadStats = useCallback(async () => {
+    try {
+      const [b, l, p, s, lastSync] = await Promise.all([
+        borrowerHelper.getAll(db),
+        loanHelper.getAll(db),
+        paymentHelper.getAll(db),
+        outboxHelper.getStats(db),
+        syncStateHelper.get(db, "last_synced_at"),
+      ]);
+      setStats({ borrowers: b.length, loans: l.length, payments: p.length });
+      setSyncStats(s);
+      setLastSyncedAt(lastSync);
+    } catch (err) {
+      console.error("Failed to load stats:", err);
     }
-    loadStats();
   }, [db]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadStats();
+    }, [loadStats]),
+  );
 
   const handleSyncNow = async () => {
     if (isSyncing) return;

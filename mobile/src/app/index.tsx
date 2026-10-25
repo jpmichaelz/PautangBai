@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { borrowerHelper } from "@/db-helpers/borrowers";
 import { loanHelper } from "@/db-helpers/loans";
 import { paymentHelper } from "@/db-helpers/payments";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { Borrower, Loan, Payment } from "@/types/database";
 import { formatPHP } from "@/services/interest/calculateInterest";
 import { calculateLoanBalance } from "@/services/balance/calculateBalance";
@@ -73,6 +73,12 @@ export default function HomeScreen() {
   useEffect(() => {
     loadAllData();
   }, [loadAllData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadAllData();
+    }, [loadAllData]),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -144,6 +150,15 @@ export default function HomeScreen() {
   const handleOpenDetailModal = (loan: Loan) => {
     setSelectedLoanForDetail(loan);
     setIsDetailModalVisible(true);
+  };
+
+  const handleDeleteLoan = async (loan: Loan) => {
+    try {
+      await loanHelper.softDelete(db, loan.id);
+      await loadAllData();
+    } catch (err) {
+      console.error("Failed to delete loan:", err);
+    }
   };
 
   return (
@@ -396,7 +411,10 @@ export default function HomeScreen() {
         <LoanFormModal
           visible={isLoanModalVisible}
           borrowers={borrowers}
-          onClose={() => setIsLoanModalVisible(false)}
+          onClose={() => {
+            setIsLoanModalVisible(false);
+            loadAllData();
+          }}
           onSuccess={() => loadAllData()}
           onAddBorrowerPress={() => setIsBorrowerModalVisible(true)}
         />
@@ -410,20 +428,29 @@ export default function HomeScreen() {
               : undefined
           }
           allPayments={payments}
-          onClose={() => setIsPayModalVisible(false)}
+          onClose={() => {
+            setIsPayModalVisible(false);
+            loadAllData();
+          }}
           onSuccess={() => loadAllData()}
         />
 
         <BorrowerFormModal
           visible={isBorrowerModalVisible}
-          onClose={() => setIsBorrowerModalVisible(false)}
+          onClose={() => {
+            setIsBorrowerModalVisible(false);
+            loadAllData();
+          }}
           onSuccess={() => loadAllData()}
         />
 
         {/* Loan Detail Modal */}
         <LoanDetailModal
           visible={isDetailModalVisible}
-          onClose={() => setIsDetailModalVisible(false)}
+          onClose={() => {
+            setIsDetailModalVisible(false);
+            loadAllData();
+          }}
           loan={selectedLoanForDetail}
           borrower={
             selectedLoanForDetail
@@ -435,6 +462,7 @@ export default function HomeScreen() {
             setSelectedLoanForPay(loan);
             setIsPayModalVisible(true);
           }}
+          onDeleteLoan={handleDeleteLoan}
         />
 
         {/* Notification Modal */}
