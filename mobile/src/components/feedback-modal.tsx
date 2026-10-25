@@ -29,58 +29,58 @@ export function FeedbackModal({
   const isSuccess = type === "success";
 
   return (
-    <View style={styles.overlay}>
-      <View style={styles.card}>
-          {/* Mascot Circle */}
-          <View
-            style={[
-              styles.mascotContainer,
-              isSuccess ? styles.successGlow : styles.errorGlow,
-            ]}
-          >
-            <Frog mood={frogMood} size={92} />
-          </View>
-
-          {/* Badge */}
-          <View
-            style={[
-              styles.badge,
-              isSuccess ? styles.successBadge : styles.errorBadge,
-            ]}
-          >
-            <Ionicons
-              name={isSuccess ? "checkmark-circle" : "alert-circle"}
-              size={13}
-              color={isSuccess ? "#15803D" : "#B91C1C"}
-            />
-            <Text
-              style={[
-                styles.badgeText,
-                isSuccess ? styles.successBadgeText : styles.errorBadgeText,
-              ]}
-            >
-              {isSuccess ? "SUCCESS" : "NOTICE"}
-            </Text>
-          </View>
-
-          {/* Title & Message */}
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.message}>{message}</Text>
-
-          {/* Action Button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              isSuccess ? styles.successButton : styles.errorButton,
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={onClose}
-            accessibilityRole="button"
-          >
-            <Text style={styles.buttonText}>{buttonText}</Text>
-          </Pressable>
+    <Pressable style={styles.overlay} onPress={onClose}>
+      <Pressable style={styles.card} onPress={() => {}}>
+        {/* Mascot Circle */}
+        <View
+          style={[
+            styles.mascotContainer,
+            isSuccess ? styles.successGlow : styles.errorGlow,
+          ]}
+        >
+          <Frog mood={frogMood} size={92} />
         </View>
-      </View>
+
+        {/* Badge */}
+        <View
+          style={[
+            styles.badge,
+            isSuccess ? styles.successBadge : styles.errorBadge,
+          ]}
+        >
+          <Ionicons
+            name={isSuccess ? "checkmark-circle" : "alert-circle"}
+            size={13}
+            color={isSuccess ? "#15803D" : "#B91C1C"}
+          />
+          <Text
+            style={[
+              styles.badgeText,
+              isSuccess ? styles.successBadgeText : styles.errorBadgeText,
+            ]}
+          >
+            {isSuccess ? "SUCCESS" : "NOTICE"}
+          </Text>
+        </View>
+
+        {/* Title & Message */}
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.message}>{message}</Text>
+
+        {/* Action Button */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.button,
+            isSuccess ? styles.successButton : styles.errorButton,
+            pressed && styles.buttonPressed,
+          ]}
+          onPress={onClose}
+          accessibilityRole="button"
+        >
+          <Text style={styles.buttonText}>{buttonText}</Text>
+        </Pressable>
+      </Pressable>
+    </Pressable>
   );
 }
 
@@ -91,12 +91,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(15, 38, 33, 0.7)",
+    backgroundColor: "rgba(15, 38, 33, 0.72)",
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
     zIndex: 9999,
-    elevation: 9999,
   },
   card: {
     width: "100%",

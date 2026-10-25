@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Keyboard,
 } from "react-native";
 import { useSQLiteContext } from "expo-sqlite";
 import { Ionicons } from "@expo/vector-icons";
@@ -87,6 +88,7 @@ export function BorrowerFormModal({
       return;
     }
 
+    Keyboard.dismiss();
     setIsSubmitting(true);
     try {
       const id = generateUUID();
@@ -134,8 +136,8 @@ export function BorrowerFormModal({
       onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
-        behavior="padding"
-        className="flex-1 bg-paper"
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        className="flex-1 bg-paper relative"
       >
         {/* Top Back Action Bar */}
         <View className="px-4 pt-3 pb-1 flex-row items-center">
@@ -192,13 +194,18 @@ export function BorrowerFormModal({
 
           {/* Phone Number */}
           <View className="mb-4">
-            <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
-              Phone Number
-            </Text>
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-xs font-bold text-ink uppercase tracking-wider">
+                Phone Number
+              </Text>
+              <Text className="text-[11px] font-semibold text-slate/70">
+                Optional
+              </Text>
+            </View>
             <View className="flex-row items-center rounded-xl border border-border bg-white px-3.5 shadow-xs">
               <Ionicons name="call-outline" size={18} color="#287A63" />
               <TextInput
-                placeholder="e.g. 0917 123 4567"
+                placeholder="e.g. 0917 123 4567 (optional)"
                 placeholderTextColor="#9CA3AF"
                 value={phone}
                 onChangeText={setPhone}
@@ -295,19 +302,19 @@ export function BorrowerFormModal({
             </Text>
           </Pressable>
         </ScrollView>
-      </KeyboardAvoidingView>
 
-      {feedback && (
-        <FeedbackModal
-          visible={feedback.visible}
-          type={feedback.type}
-          mood={feedback.type === "success" ? "celebrate" : "thinking"}
-          title={feedback.title}
-          message={feedback.message}
-          buttonText={feedback.type === "success" ? "Done" : "Try Again"}
-          onClose={handleFeedbackClose}
-        />
-      )}
+        {feedback && (
+          <FeedbackModal
+            visible={feedback.visible}
+            type={feedback.type}
+            mood={feedback.type === "success" ? "celebrate" : "thinking"}
+            title={feedback.title}
+            message={feedback.message}
+            buttonText={feedback.type === "success" ? "Done" : "Try Again"}
+            onClose={handleFeedbackClose}
+          />
+        )}
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

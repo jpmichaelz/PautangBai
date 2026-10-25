@@ -22,6 +22,7 @@ import { getLocalDateString } from "@/services/date/dateUtils";
 import { Frog } from "@/components/frog";
 import {
   BorrowerFormModal,
+  LoanFormModal,
   PaymentFormModal,
   LoanDetailModal,
 } from "@/components/forms";
@@ -30,6 +31,23 @@ import PautangBaiLogo from "@/assets/images/PAUTANGBAI_LOGO.svg";
 
 type FilterStatus = "all" | "active" | "overdue" | "paid";
 type SortOrder = "newest" | "oldest";
+
+type DirectoryItem =
+  | {
+      type: "loan";
+      id: string;
+      loan: Loan;
+      borrower: Borrower | undefined;
+      balance: ReturnType<typeof calculateLoanBalance>;
+      payments: Payment[];
+      createdAt: string;
+    }
+  | {
+      type: "borrower_only";
+      id: string;
+      borrower: Borrower;
+      createdAt: string;
+    };
 
 export default function BorrowersScreen() {
   const db = useSQLiteContext();
@@ -47,6 +65,8 @@ export default function BorrowersScreen() {
   const [isBorrowerModalVisible, setIsBorrowerModalVisible] = useState(false);
   const [isPayModalVisible, setIsPayModalVisible] = useState(false);
   const [selectedLoanForPay, setSelectedLoanForPay] = useState<Loan | null>(null);
+  const [isLoanModalVisible, setIsLoanModalVisible] = useState(false);
+  const [selectedBorrowerForLoan, setSelectedBorrowerForLoan] = useState<Borrower | null>(null);
 
   // Detail Modal
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
@@ -86,30 +106,73 @@ export default function BorrowersScreen() {
   const borrowerMap = new Map(borrowers.map((b) => [b.id, b]));
 
   // Combine loans with borrower and calculated balance
-  const fullLoansData = loans
+  const loansData: DirectoryItem[] = loans
     .filter((l) => l.status !== "cancelled")
     .map((loan) => {
       const loanPayments = payments.filter((p) => p.loan_id === loan.id && !p.deleted_at);
       const balance = calculateLoanBalance(loan, loanPayments);
       const borrower = borrowerMap.get(loan.borrower_id);
       return {
+        type: "loan",
+        id: loan.id,
         loan,
         borrower,
         balance,
         payments: loanPayments,
+        createdAt: loan.created_at || loan.loan_date,
       };
     });
 
+  const borrowerIdsWithLoans = new Set(
+    loansData.map((item) => (item as any).loan.borrower_id),
+  );
+  const borrowerOnlyData: DirectoryItem[] = borrowers
+    .filter((b) => !borrowerIdsWithLoans.has(b.id))
+    .map((borrower) => ({
+      type: "borrower_only",
+      id: `borrower_${borrower.id}`,
+      borrower,
+      createdAt: borrower.created_at || new Date().toISOString(),
+    }));
+
+  const allDirectoryItems: DirectoryItem[] = [...loansData, ...borrowerOnlyData];
+
   // Calculate high-level stats
-  const activeDebtsCount = fullLoansData.filter((i) => !i.balance.isPaid).length;
-  const overdueDebtsCount = fullLoansData.filter((i) => i.balance.isOverdue).length;
-  const totalOutstandingMinor = fullLoansData.reduce(
-    (sum, i) => sum + i.balance.remainingBalanceMinor,
+  const activeDebtsCount = loansData.filter(
+    (i) => i.type === "loan" && !i.balance.isPaid,
+  ).length;
+  const overdueDebtsCount = loansData.filter(
+    (i) => i.type === "loan" && i.balance.isOverdue,
+  ).length;
+  const totalOutstandingMinor = loansData.reduce(
+    (sum, i) =>
+      sum + (i.type === "loan" ? i.balance.remainingBalanceMinor : 0),
     0,
   );
 
   // Filter and search
-  const filteredItems = fullLoansData.filter(({ loan, borrower, balance }) => {
+  const filteredItems = allDirectoryItems.filter((item) => {
+    if (item.type === "borrower_only") {
+      // Borrower without loans appears in "all" tab
+      if (filterStatus !== "all") return false;
+
+      const query = searchQuery.toLowerCase().trim();
+      if (!query) return true;
+
+      const bName = item.borrower.name.toLowerCase();
+      const bPhone = item.borrower.phone || "";
+      const bAddr = item.borrower.address?.toLowerCase() || "";
+      const bNotes = item.borrower.notes?.toLowerCase() || "";
+
+      return (
+        bName.includes(query) ||
+        bPhone.includes(query) ||
+        bAddr.includes(query) ||
+        bNotes.includes(query)
+      );
+    }
+
+    const { loan, borrower, balance } = item;
     // Filter status tab
     if (filterStatus === "active" && balance.isPaid) return false;
     if (filterStatus === "overdue" && !balance.isOverdue) return false;
@@ -134,8 +197,8 @@ export default function BorrowersScreen() {
 
   // Sort items (newest vs oldest)
   const sortedAndFilteredItems = [...filteredItems].sort((a, b) => {
-    const dateA = new Date(a.loan.created_at || a.loan.loan_date).getTime();
-    const dateB = new Date(b.loan.created_at || b.loan.loan_date).getTime();
+    const dateA = new Date(a.createdAt).getTime();
+    const dateB = new Date(b.createdAt).getTime();
     return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
   });
 
@@ -204,7 +267,7 @@ export default function BorrowersScreen() {
         {/* Main List */}
         <FlatList
           data={sortedAndFilteredItems}
-          keyExtractor={(item) => item.loan.id}
+          keyExtractor={(item) => item.id}
           ListHeaderComponent={
             <View className="mb-2 gap-3.5">
               {/* Page Container Banner */}
@@ -385,6 +448,92 @@ export default function BorrowersScreen() {
             </View>
           }
           renderItem={({ item }) => {
+            if (item.type === "borrower_only") {
+              const tagMatch = item.borrower.notes?.match(/^\[(.*?)\]/);
+              const tag = tagMatch ? tagMatch[1] : null;
+
+              return (
+                <Pressable
+                  key={item.id}
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    borderColor: "#A6D9B6",
+                  }}
+                  className="rounded-3xl p-4 border shadow-xs active:scale-[0.99] gap-3"
+                  onPress={() => {
+                    setSelectedBorrowerForLoan(item.borrower);
+                    setIsLoanModalVisible(true);
+                  }}
+                >
+                  <View className="flex-row justify-between items-start gap-2">
+                    <View className="flex-1">
+                      <Text className="text-[11px] font-bold text-slate uppercase tracking-wider">
+                        Registered Borrower
+                      </Text>
+                      <Text
+                        numberOfLines={1}
+                        className="text-2xl font-black text-forest-900 tracking-tight mt-0.5"
+                      >
+                        {item.borrower.name}
+                      </Text>
+                    </View>
+
+                    <View className="shrink-0">
+                      <View
+                        style={{ backgroundColor: "#E8F7EE", borderColor: "#A8DCC5" }}
+                        className="px-2.5 py-1 rounded-full border flex-row items-center gap-1"
+                      >
+                        <Ionicons name="person" size={12} color="#15803D" />
+                        <Text className="text-xs font-bold text-forest-900 uppercase">
+                          No Loans Yet
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {(item.borrower.phone || item.borrower.address || tag) && (
+                    <View className="border-t border-slate-100 pt-2 gap-1.5">
+                      {tag && (
+                        <View className="flex-row items-center gap-1 self-start px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200">
+                          <Ionicons name="pricetag" size={11} color="#059669" />
+                          <Text className="text-[10px] font-bold text-emerald-800">{tag}</Text>
+                        </View>
+                      )}
+                      {item.borrower.phone && (
+                        <View className="flex-row items-center gap-2">
+                          <Ionicons name="call-outline" size={14} color="#66716D" />
+                          <Text className="text-xs text-slate-700 font-semibold">
+                            {item.borrower.phone}
+                          </Text>
+                        </View>
+                      )}
+                      {item.borrower.address && (
+                        <View className="flex-row items-center gap-2">
+                          <Ionicons name="location-outline" size={14} color="#66716D" />
+                          <Text className="text-xs text-slate-600 font-medium">
+                            {item.borrower.address}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  <Pressable
+                    className="min-h-[44px] rounded-2xl bg-forest-900 items-center justify-center flex-row gap-2 active:bg-forest-900/90 shadow-xs"
+                    onPress={() => {
+                      setSelectedBorrowerForLoan(item.borrower);
+                      setIsLoanModalVisible(true);
+                    }}
+                  >
+                    <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
+                    <Text className="text-white text-xs font-extrabold tracking-wide uppercase">
+                      + Create Loan for {item.borrower.name}
+                    </Text>
+                  </Pressable>
+                </Pressable>
+              );
+            }
+
             const { loan, borrower, balance } = item;
             const percentPaid = balance.totalOwedMinor > 0
               ? Math.min(100, Math.round((balance.totalPaidMinor / balance.totalOwedMinor) * 100))
@@ -631,6 +780,22 @@ export default function BorrowersScreen() {
           visible={isBorrowerModalVisible}
           onClose={() => setIsBorrowerModalVisible(false)}
           onSuccess={() => loadData()}
+        />
+
+        {/* Create Loan Modal */}
+        <LoanFormModal
+          visible={isLoanModalVisible}
+          borrowers={borrowers}
+          initialBorrowerId={selectedBorrowerForLoan?.id}
+          onClose={() => {
+            setIsLoanModalVisible(false);
+            setSelectedBorrowerForLoan(null);
+          }}
+          onSuccess={() => loadData()}
+          onAddBorrowerPress={() => {
+            setIsLoanModalVisible(false);
+            setIsBorrowerModalVisible(true);
+          }}
         />
 
         {/* Loan Detail Modal */}

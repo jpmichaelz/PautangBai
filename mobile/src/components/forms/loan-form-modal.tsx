@@ -9,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from "react-native";
 import { useSQLiteContext } from "expo-sqlite";
 import { Ionicons } from "@expo/vector-icons";
@@ -180,6 +181,7 @@ export function LoanFormModal({
       return;
     }
 
+    Keyboard.dismiss();
     setIsSubmitting(true);
     try {
       const loanDateStr = getLocalDateString();
@@ -255,7 +257,10 @@ export function LoanFormModal({
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView behavior="padding" className="flex-1 bg-paper">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        className="flex-1 bg-paper relative"
+      >
         {/* Top Back Action Bar */}
         <View className="px-4 pt-3 pb-1 flex-row items-center">
           <Pressable
@@ -630,19 +635,19 @@ export function LoanFormModal({
             </Text>
           </Pressable>
         </ScrollView>
-      </KeyboardAvoidingView>
 
-      {feedback && (
-        <FeedbackModal
-          visible={feedback.visible}
-          type={feedback.type}
-          mood={feedback.type === "success" ? "celebrate" : "thinking"}
-          title={feedback.title}
-          message={feedback.message}
-          buttonText={feedback.type === "success" ? "Done" : "Try Again"}
-          onClose={handleFeedbackClose}
-        />
-      )}
+        {feedback && (
+          <FeedbackModal
+            visible={feedback.visible}
+            type={feedback.type}
+            mood={feedback.type === "success" ? "celebrate" : "thinking"}
+            title={feedback.title}
+            message={feedback.message}
+            buttonText={feedback.type === "success" ? "Done" : "Try Again"}
+            onClose={handleFeedbackClose}
+          />
+        )}
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
