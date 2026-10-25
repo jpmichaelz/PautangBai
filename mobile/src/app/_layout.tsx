@@ -31,7 +31,6 @@ console.warn = (...args: unknown[]) => {
 };
 
 
-import { AnimatedSplashOverlay } from "@/components/animated-icon";
 import AppTabs from "@/components/app-tabs";
 import { DATABASE_NAME, migrateDbIfNeeded } from "@/database/migrate";
 import { useAutoSync } from "@/services/sync/useAutoSync";
@@ -81,8 +80,14 @@ function AppNavigation() {
   const [authView, setAuthView] = useState<"login" | "register">("login");
   const [direction, setDirection] = useState<"forward" | "backward">("forward");
 
+  useEffect(() => {
+    if (!isLoading) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [isLoading]);
+
   if (isLoading) {
-    return <AnimatedSplashOverlay />;
+    return null;
   }
 
   if (!canAccessApp) {
@@ -122,12 +127,7 @@ function AppNavigation() {
     );
   }
 
-  return (
-    <>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </>
-  );
+  return <AppTabs />;
 }
 
 export default function TabLayout() {

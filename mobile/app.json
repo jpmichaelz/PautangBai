@@ -8,7 +8,7 @@
     "icon": "./assets/images/icon.png",
     "android": {
       "package": "com.pautangbai.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#173D35"
