@@ -3,15 +3,31 @@ import "@/global.css";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SQLiteProvider, useSQLiteContext } from "expo-sqlite";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
-  Platform,
+  AppState,
   useColorScheme,
   LogBox,
   StyleSheet,
   View,
 } from "react-native";
-import { setVisibilityAsync } from "expo-navigation-bar";
+import { NavigationBar } from "expo-navigation-bar";
+import { StatusBar } from "expo-status-bar";
+import Animated, {
+  SlideInRight,
+  SlideOutLeft,
+  SlideInLeft,
+  SlideOutRight,
+} from "react-native-reanimated";
+
+import { enforceImmersiveSystemBars } from "@/utils/system-bars";
+import AppTabs from "@/components/app-tabs";
+import { DATABASE_NAME, migrateDbIfNeeded } from "@/database/migrate";
+import { useAutoSync } from "@/services/sync/useAutoSync";
+import { AuthProvider, useAuth } from "@/contexts/auth-context";
+import { Colors } from "@/constants/theme";
+import LoginScreen from "./login";
+import RegisterScreen from "./register";
 
 LogBox.ignoreLogs([
   "ImageBackground is deprecated",
@@ -29,24 +45,6 @@ console.warn = (...args: unknown[]) => {
   }
   originalWarn(...args);
 };
-
-
-import AppTabs from "@/components/app-tabs";
-import { DATABASE_NAME, migrateDbIfNeeded } from "@/database/migrate";
-import { useAutoSync } from "@/services/sync/useAutoSync";
-
-import { useState } from "react";
-import Animated, {
-  SlideInRight,
-  SlideOutLeft,
-  SlideInLeft,
-  SlideOutRight,
-} from "react-native-reanimated";
-
-import { AuthProvider, useAuth } from "@/contexts/auth-context";
-import { Colors } from "@/constants/theme";
-import LoginScreen from "./login";
-import RegisterScreen from "./register";
 
 const CustomDefaultTheme = {
   ...DefaultTheme,
@@ -134,15 +132,21 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
 
   useEffect(() => {
-    if (Platform.OS === "android") {
-      setVisibilityAsync("hidden").catch(() => {});
-    }
+    enforceImmersiveSystemBars();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        enforceImmersiveSystemBars();
+      }
+    });
+    return () => sub.remove();
   }, []);
 
   return (
     <ThemeProvider
       value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}
     >
+      <StatusBar hidden />
+      <NavigationBar hidden />
       <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded}>
         <AuthProvider>
           <AppNavigation />

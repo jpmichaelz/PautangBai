@@ -11,6 +11,7 @@ import {
   Platform,
   Keyboard,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useSQLiteContext } from "expo-sqlite";
 import { Ionicons } from "@expo/vector-icons";
 import { Loan, Payment } from "@/types/database";
@@ -25,6 +26,7 @@ import { getLocalDateString } from "@/services/date/dateUtils";
 import { Frog } from "@/components/frog";
 import { FeedbackModal } from "@/components/feedback-modal";
 import { generateUUID } from "@/services/uuid";
+import { enforceImmersiveSystemBars } from "@/utils/system-bars";
 
 
 interface PaymentFormModalProps {
@@ -149,26 +151,30 @@ export function PaymentFormModal({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
+      statusBarTranslucent
+      navigationBarTranslucent
+      onShow={enforceImmersiveSystemBars}
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        className="flex-1 bg-paper relative"
-      >
-        {/* Top Back Action Bar */}
-        <View className="px-4 pt-3 pb-1 flex-row items-center">
-          <Pressable
-            onPress={handleClose}
-            hitSlop={12}
-            className="flex-row items-center gap-1.5 py-1.5 px-2 -ml-2 rounded-xl active:bg-white/60"
-            accessibilityLabel="Back"
-            accessibilityRole="button"
-          >
-            <Ionicons name="arrow-back" size={22} color="#173D35" />
-            <Text className="text-sm font-bold text-forest-900">Back</Text>
-          </Pressable>
-        </View>
+      <SafeAreaView className="flex-1 bg-paper" edges={["top", "bottom"]}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          className="flex-1 relative"
+        >
+          {/* Top Back Action Bar */}
+          <View className="px-5 pt-5 pb-2 flex-row items-center">
+            <Pressable
+              onPress={handleClose}
+              hitSlop={12}
+              className="flex-row items-center gap-1.5 py-2 px-3 rounded-full bg-white/80 border border-border active:bg-white shadow-xs"
+              accessibilityLabel="Back"
+              accessibilityRole="button"
+            >
+              <Ionicons name="arrow-back" size={18} color="#173D35" />
+              <Text className="text-xs font-extrabold text-forest-900">Back</Text>
+            </Pressable>
+          </View>
 
         <ScrollView
           className="flex-1 px-5"
@@ -259,18 +265,19 @@ export function PaymentFormModal({
           </Pressable>
         </ScrollView>
 
-        {feedback && (
-          <FeedbackModal
-            visible={feedback.visible}
-            type={feedback.type}
-            mood={feedback.type === "success" ? "celebrate" : "thinking"}
-            title={feedback.title}
-            message={feedback.message}
-            buttonText={feedback.type === "success" ? "Done" : "Try Again"}
-            onClose={handleFeedbackClose}
-          />
-        )}
-      </KeyboardAvoidingView>
+          {feedback && (
+            <FeedbackModal
+              visible={feedback.visible}
+              type={feedback.type}
+              mood={feedback.type === "success" ? "celebrate" : "thinking"}
+              title={feedback.title}
+              message={feedback.message}
+              buttonText={feedback.type === "success" ? "Done" : "Try Again"}
+              onClose={handleFeedbackClose}
+            />
+          )}
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </Modal>
   );
 }

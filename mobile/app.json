@@ -16,6 +16,10 @@
       "usesCleartextTraffic": true,
       "predictiveBackGestureEnabled": false
     },
+    "androidStatusBar": {
+      "hidden": true,
+      "translucent": true
+    },
     "androidNavigationBar": {
       "visible": "sticky-immersive"
     },

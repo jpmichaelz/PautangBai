@@ -11,6 +11,7 @@ import {
   Platform,
   Keyboard,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useSQLiteContext } from "expo-sqlite";
 import { Ionicons } from "@expo/vector-icons";
 import { Borrower, Loan, LoanInterestType } from "@/types/database";
@@ -29,6 +30,7 @@ import {
 } from "@/services/date/dateUtils";
 import { Frog } from "@/components/frog";
 import { FeedbackModal } from "@/components/feedback-modal";
+import { enforceImmersiveSystemBars } from "@/utils/system-bars";
 
 interface LoanFormModalProps {
   visible: boolean;
@@ -274,34 +276,40 @@ export function LoanFormModal({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
+      statusBarTranslucent
+      navigationBarTranslucent
+      onShow={enforceImmersiveSystemBars}
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        className="flex-1 bg-paper relative"
-      >
-        {/* Top Back Action Bar */}
-        <View className="px-4 pt-3 pb-1 flex-row items-center justify-between">
-          <Pressable
-            onPress={step === 2 && !initialBorrowerId ? () => setStep(1) : handleClose}
-            hitSlop={12}
-            className="flex-row items-center gap-1.5 py-1.5 px-2 -ml-2 rounded-xl active:bg-white/60"
-            accessibilityLabel="Back"
-            accessibilityRole="button"
-          >
-            <Ionicons name="arrow-back" size={22} color="#173D35" />
-            <Text className="text-sm font-bold text-forest-900">
-              {step === 2 && !initialBorrowerId ? "Change Borrower" : "Back"}
-            </Text>
-          </Pressable>
+      <SafeAreaView className="flex-1 bg-paper" edges={["top", "bottom"]}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          className="flex-1 relative"
+        >
+          {/* Top Back Action Bar */}
+          <View className="px-5 pt-5 pb-2 flex-row items-center justify-between">
+            <Pressable
+              onPress={
+                step === 2 && !initialBorrowerId ? () => setStep(1) : handleClose
+              }
+              hitSlop={12}
+              className="flex-row items-center gap-1.5 py-2 px-3 rounded-full bg-white/80 border border-border active:bg-white shadow-xs"
+              accessibilityLabel="Back"
+              accessibilityRole="button"
+            >
+              <Ionicons name="arrow-back" size={18} color="#173D35" />
+              <Text className="text-xs font-extrabold text-forest-900">
+                {step === 2 && !initialBorrowerId ? "Change Borrower" : "Back"}
+              </Text>
+            </Pressable>
 
-          <View className="px-2.5 py-1 rounded-full bg-forest-900/10">
-            <Text className="text-[10px] font-black text-forest-900 tracking-wider">
-              {step === 1 ? "STEP 1 OF 2" : "STEP 2 OF 2"}
-            </Text>
+            <View className="px-3 py-1.5 rounded-full bg-forest-900/10">
+              <Text className="text-[10px] font-black text-forest-900 tracking-wider">
+                {step === 1 ? "STEP 1 OF 2" : "STEP 2 OF 2"}
+              </Text>
+            </View>
           </View>
-        </View>
 
         {step === 1 ? (
           <ScrollView
@@ -322,7 +330,12 @@ export function LoanFormModal({
 
             {/* Search Bar */}
             <View className="flex-row items-center px-3.5 py-2.5 rounded-2xl bg-white border border-border shadow-xs mb-3">
-              <Ionicons name="search" size={18} color="#66716D" style={{ marginRight: 8 }} />
+              <Ionicons
+                name="search"
+                size={18}
+                color="#66716D"
+                style={{ marginRight: 8 }}
+              />
               <TextInput
                 placeholder="Search by name, phone, or tag..."
                 placeholderTextColor="#9CA3AF"
@@ -409,12 +422,19 @@ export function LoanFormModal({
                               </View>
                             )}
                           </View>
-                          <Text numberOfLines={1} className="text-xs text-slate mt-0.5">
+                          <Text
+                            numberOfLines={1}
+                            className="text-xs text-slate mt-0.5"
+                          >
                             {b.phone || b.address || "Active Borrower"}
                           </Text>
                         </View>
                       </View>
-                      <Ionicons name="chevron-forward" size={18} color="#287A63" />
+                      <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color="#287A63"
+                      />
                     </Pressable>
                   );
                 })
@@ -448,11 +468,16 @@ export function LoanFormModal({
                   <Text className="text-[10px] font-black text-forest-900/60 uppercase tracking-wider">
                     Mangungutang / Borrower
                   </Text>
-                  <Text numberOfLines={1} className="text-base font-black text-forest-900 mt-0.5">
+                  <Text
+                    numberOfLines={1}
+                    className="text-base font-black text-forest-900 mt-0.5"
+                  >
                     {selectedBorrower?.name || "Selected Borrower"}
                   </Text>
                   <Text numberOfLines={1} className="text-xs text-slate">
-                    {selectedBorrower?.phone || selectedBorrower?.address || "Ready for loan"}
+                    {selectedBorrower?.phone ||
+                      selectedBorrower?.address ||
+                      "Ready for loan"}
                   </Text>
                 </View>
               </View>
@@ -460,317 +485,321 @@ export function LoanFormModal({
                 onPress={() => setStep(1)}
                 className="py-1.5 px-3 rounded-full bg-forest-900/10 active:bg-forest-900/20"
               >
-                <Text className="text-xs font-bold text-forest-900">Ilisi / Change</Text>
-              </Pressable>
-            </View>
-
-          {/* Principal Amount */}
-          <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
-            Loan Amount (PHP ₱) *
-          </Text>
-          <TextInput
-            placeholder="e.g. 5,000"
-            placeholderTextColor="#9CA3AF"
-            value={principalInput}
-            onChangeText={setPrincipalInput}
-            keyboardType="numeric"
-            className="rounded-xl border border-border bg-white px-3.5 py-3 text-base text-ink mb-4"
-          />
-
-          {/* Interest/Fee Type Selector */}
-          <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
-            Tubo / Interest Fee
-          </Text>
-          <View className="flex-row flex-wrap gap-2 mb-4">
-            {(
-              [
-                { key: "none", label: "None (₱0)" },
-                { key: "fixed_amount", label: "Fixed Fee (₱)" },
-                { key: "percentage_flat", label: "Flat %" },
-                { key: "percentage_daily", label: "Daily %" },
-                { key: "percentage_weekly", label: "Weekly %" },
-                { key: "percentage_monthly", label: "Monthly %" },
-              ] as const
-            ).map((opt) => (
-              <Pressable
-                key={opt.key}
-                className={`py-2 px-3 rounded-xl border ${
-                  interestType === opt.key
-                    ? "bg-bai border-bai"
-                    : "bg-white border-border"
-                }`}
-                onPress={() => {
-                  setInterestType(opt.key);
-                  if (opt.key === "percentage_daily") setTermUnits("15");
-                  else if (opt.key === "percentage_weekly") setTermUnits("4");
-                  else if (opt.key === "percentage_monthly") setTermUnits("1");
-                }}
-              >
-                <Text
-                  className={`text-xs font-bold ${
-                    interestType === opt.key ? "text-white" : "text-ink"
-                  }`}
-                >
-                  {opt.label}
+                <Text className="text-xs font-bold text-forest-900">
+                  Ilisi / Change
                 </Text>
               </Pressable>
-            ))}
-          </View>
-
-          {interestType === "fixed_amount" && (
-            <View className="mb-4">
-              <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
-                Fixed Fee Amount (₱)
-              </Text>
-              <TextInput
-                placeholder="e.g. 200"
-                placeholderTextColor="#9CA3AF"
-                value={fixedFeeInput}
-                onChangeText={setFixedFeeInput}
-                keyboardType="numeric"
-                className="rounded-xl border border-border bg-white px-3.5 py-3 text-base text-ink"
-              />
             </View>
-          )}
 
-          {interestType.startsWith("percentage") && (
-            <View className="mb-4">
-              <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
-                {interestType === "percentage_daily"
-                  ? "Daily Interest Rate (% / day)"
-                  : interestType === "percentage_weekly"
-                    ? "Weekly Interest Rate (% / week)"
-                    : interestType === "percentage_monthly"
-                      ? "Monthly Interest Rate (% / month)"
-                      : "Flat Interest Rate (%)"}
-              </Text>
-              <TextInput
-                placeholder={
-                  interestType === "percentage_daily"
-                    ? "e.g. 1"
-                    : "e.g. 5 or 10"
-                }
-                placeholderTextColor="#9CA3AF"
-                value={percentageRateInput}
-                onChangeText={setPercentageRateInput}
-                keyboardType="numeric"
-                className="rounded-xl border border-border bg-white px-3.5 py-3 text-base text-ink"
-              />
-            </View>
-          )}
-
-          {interestType === "percentage_daily" && (
-            <View className="mb-4">
-              <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
-                Agreed Term (Days)
-              </Text>
-              <View className="flex-row flex-wrap gap-2">
-                {[
-                  { key: "7", label: "7 Days" },
-                  { key: "15", label: "15 Days" },
-                  { key: "30", label: "30 Days" },
-                  { key: "60", label: "60 Days" },
-                ].map((opt) => (
-                  <Pressable
-                    key={opt.key}
-                    className={`py-2 px-3 rounded-xl border ${
-                      termUnits === opt.key
-                        ? "bg-forest-900 border-forest-900"
-                        : "bg-white border-border"
-                    }`}
-                    onPress={() => setTermUnits(opt.key)}
-                  >
-                    <Text
-                      className={`text-xs font-bold ${
-                        termUnits === opt.key ? "text-white" : "text-ink"
-                      }`}
-                    >
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          )}
-
-          {interestType === "percentage_weekly" && (
-            <View className="mb-4">
-              <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
-                Agreed Term (Weeks)
-              </Text>
-              <View className="flex-row flex-wrap gap-2">
-                {[
-                  { key: "1", label: "1 Week" },
-                  { key: "2", label: "2 Weeks" },
-                  { key: "3", label: "3 Weeks" },
-                  { key: "4", label: "4 Weeks" },
-                ].map((opt) => (
-                  <Pressable
-                    key={opt.key}
-                    className={`py-2 px-3 rounded-xl border ${
-                      termUnits === opt.key
-                        ? "bg-forest-900 border-forest-900"
-                        : "bg-white border-border"
-                    }`}
-                    onPress={() => setTermUnits(opt.key)}
-                  >
-                    <Text
-                      className={`text-xs font-bold ${
-                        termUnits === opt.key ? "text-white" : "text-ink"
-                      }`}
-                    >
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          )}
-
-          {interestType === "percentage_monthly" && (
-            <View className="mb-4">
-              <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
-                Agreed Term (Months)
-              </Text>
-              <View className="flex-row flex-wrap gap-2">
-                {[
-                  { key: "1", label: "1 Month" },
-                  { key: "2", label: "2 Months" },
-                  { key: "3", label: "3 Months" },
-                  { key: "6", label: "6 Months" },
-                ].map((opt) => (
-                  <Pressable
-                    key={opt.key}
-                    className={`py-2 px-3 rounded-xl border ${
-                      termUnits === opt.key
-                        ? "bg-forest-900 border-forest-900"
-                        : "bg-white border-border"
-                    }`}
-                    onPress={() => setTermUnits(opt.key)}
-                  >
-                    <Text
-                      className={`text-xs font-bold ${
-                        termUnits === opt.key ? "text-white" : "text-ink"
-                      }`}
-                    >
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          )}
-
-          {/* Due Date Presets for flat / fixed / none */}
-          {["none", "fixed_amount", "percentage_flat"].includes(
-            interestType,
-          ) && (
-            <>
-              <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
-                Due Date
-              </Text>
-              <View className="flex-row flex-wrap gap-2 mb-4">
-                {[
-                  { key: "15", label: "15 Days" },
-                  { key: "30", label: "30 Days" },
-                  { key: "60", label: "60 Days" },
-                  { key: "none", label: "No Due Date" },
-                ].map((opt) => (
-                  <Pressable
-                    key={opt.key}
-                    className={`py-2 px-3 rounded-xl border ${
-                      dueDateDays === opt.key
-                        ? "bg-forest-900 border-forest-900"
-                        : "bg-white border-border"
-                    }`}
-                    onPress={() => setDueDateDays(opt.key as any)}
-                  >
-                    <Text
-                      className={`text-xs font-bold ${
-                        dueDateDays === opt.key ? "text-white" : "text-ink"
-                      }`}
-                    >
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </>
-          )}
-
-          {/* Notes */}
-          <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
-            Notes (Optional)
-          </Text>
-          <TextInput
-            placeholder="e.g. For store inventory"
-            placeholderTextColor="#9CA3AF"
-            value={loanNotes}
-            onChangeText={setLoanNotes}
-            className="rounded-xl border border-border bg-white px-3.5 py-3 text-base text-ink mb-4"
-          />
-
-          {/* Calculation Preview */}
-          <View className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 gap-2 mb-6">
-            <Text className="text-[11px] font-extrabold text-forest-900 tracking-wider">
-              LOAN SUMMARY PREVIEW
+            {/* Principal Amount */}
+            <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
+              Loan Amount (PHP ₱) *
             </Text>
-            <View className="flex-row justify-between items-center">
-              <Text className="text-xs text-slate">Principal Amount:</Text>
-              <Text className="text-sm font-semibold text-ink">
-                {formatPHP(principalMinor)}
-              </Text>
-            </View>
-            <View className="flex-row justify-between items-center">
-              <View>
-                <Text className="text-xs text-slate">Interest / Charge:</Text>
-                {termExplanation ? (
-                  <Text className="text-[10px] text-amber-700 font-medium">
-                    {termExplanation}
+            <TextInput
+              placeholder="e.g. 5,000"
+              placeholderTextColor="#9CA3AF"
+              value={principalInput}
+              onChangeText={setPrincipalInput}
+              keyboardType="numeric"
+              className="rounded-xl border border-border bg-white px-3.5 py-3 text-base text-ink mb-4"
+            />
+
+            {/* Interest/Fee Type Selector */}
+            <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
+              Tubo / Interest Fee
+            </Text>
+            <View className="flex-row flex-wrap gap-2 mb-4">
+              {(
+                [
+                  { key: "none", label: "None (₱0)" },
+                  { key: "fixed_amount", label: "Fixed Fee (₱)" },
+                  { key: "percentage_flat", label: "Flat %" },
+                  { key: "percentage_daily", label: "Daily %" },
+                  { key: "percentage_weekly", label: "Weekly %" },
+                  { key: "percentage_monthly", label: "Monthly %" },
+                ] as const
+              ).map((opt) => (
+                <Pressable
+                  key={opt.key}
+                  className={`py-2 px-3 rounded-xl border ${
+                    interestType === opt.key
+                      ? "bg-bai border-bai"
+                      : "bg-white border-border"
+                  }`}
+                  onPress={() => {
+                    setInterestType(opt.key);
+                    if (opt.key === "percentage_daily") setTermUnits("15");
+                    else if (opt.key === "percentage_weekly") setTermUnits("4");
+                    else if (opt.key === "percentage_monthly")
+                      setTermUnits("1");
+                  }}
+                >
+                  <Text
+                    className={`text-xs font-bold ${
+                      interestType === opt.key ? "text-white" : "text-ink"
+                    }`}
+                  >
+                    {opt.label}
                   </Text>
-                ) : null}
+                </Pressable>
+              ))}
+            </View>
+
+            {interestType === "fixed_amount" && (
+              <View className="mb-4">
+                <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
+                  Fixed Fee Amount (₱)
+                </Text>
+                <TextInput
+                  placeholder="e.g. 200"
+                  placeholderTextColor="#9CA3AF"
+                  value={fixedFeeInput}
+                  onChangeText={setFixedFeeInput}
+                  keyboardType="numeric"
+                  className="rounded-xl border border-border bg-white px-3.5 py-3 text-base text-ink"
+                />
               </View>
-              <Text className="text-sm font-semibold text-amber-700">
-                +{formatPHP(calculatedFeeMinor)}
-              </Text>
-            </View>
-            <View className="h-px bg-emerald-200 my-1" />
-            <View className="flex-row justify-between items-center">
-              <Text className="text-sm font-black text-forest-900">
-                Total to Collect:
-              </Text>
-              <Text className="text-lg font-black text-forest-900">
-                {formatPHP(totalLoanDueMinor)}
-              </Text>
-            </View>
-          </View>
+            )}
 
-          <Pressable
-            disabled={isSubmitting}
-            className={`py-4 rounded-xl items-center justify-center mb-10 ${
-              isSubmitting ? "bg-bai/60" : "bg-bai active:opacity-90"
-            }`}
-            onPress={handleSave}
-          >
-            <Text className="text-white font-bold text-base">
-              {isSubmitting ? "Creating Loan..." : "Create Loan"}
+            {interestType.startsWith("percentage") && (
+              <View className="mb-4">
+                <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
+                  {interestType === "percentage_daily"
+                    ? "Daily Interest Rate (% / day)"
+                    : interestType === "percentage_weekly"
+                      ? "Weekly Interest Rate (% / week)"
+                      : interestType === "percentage_monthly"
+                        ? "Monthly Interest Rate (% / month)"
+                        : "Flat Interest Rate (%)"}
+                </Text>
+                <TextInput
+                  placeholder={
+                    interestType === "percentage_daily"
+                      ? "e.g. 1"
+                      : "e.g. 5 or 10"
+                  }
+                  placeholderTextColor="#9CA3AF"
+                  value={percentageRateInput}
+                  onChangeText={setPercentageRateInput}
+                  keyboardType="numeric"
+                  className="rounded-xl border border-border bg-white px-3.5 py-3 text-base text-ink"
+                />
+              </View>
+            )}
+
+            {interestType === "percentage_daily" && (
+              <View className="mb-4">
+                <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
+                  Agreed Term (Days)
+                </Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {[
+                    { key: "7", label: "7 Days" },
+                    { key: "15", label: "15 Days" },
+                    { key: "30", label: "30 Days" },
+                    { key: "60", label: "60 Days" },
+                  ].map((opt) => (
+                    <Pressable
+                      key={opt.key}
+                      className={`py-2 px-3 rounded-xl border ${
+                        termUnits === opt.key
+                          ? "bg-forest-900 border-forest-900"
+                          : "bg-white border-border"
+                      }`}
+                      onPress={() => setTermUnits(opt.key)}
+                    >
+                      <Text
+                        className={`text-xs font-bold ${
+                          termUnits === opt.key ? "text-white" : "text-ink"
+                        }`}
+                      >
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {interestType === "percentage_weekly" && (
+              <View className="mb-4">
+                <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
+                  Agreed Term (Weeks)
+                </Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {[
+                    { key: "1", label: "1 Week" },
+                    { key: "2", label: "2 Weeks" },
+                    { key: "3", label: "3 Weeks" },
+                    { key: "4", label: "4 Weeks" },
+                  ].map((opt) => (
+                    <Pressable
+                      key={opt.key}
+                      className={`py-2 px-3 rounded-xl border ${
+                        termUnits === opt.key
+                          ? "bg-forest-900 border-forest-900"
+                          : "bg-white border-border"
+                      }`}
+                      onPress={() => setTermUnits(opt.key)}
+                    >
+                      <Text
+                        className={`text-xs font-bold ${
+                          termUnits === opt.key ? "text-white" : "text-ink"
+                        }`}
+                      >
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {interestType === "percentage_monthly" && (
+              <View className="mb-4">
+                <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
+                  Agreed Term (Months)
+                </Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {[
+                    { key: "1", label: "1 Month" },
+                    { key: "2", label: "2 Months" },
+                    { key: "3", label: "3 Months" },
+                    { key: "6", label: "6 Months" },
+                  ].map((opt) => (
+                    <Pressable
+                      key={opt.key}
+                      className={`py-2 px-3 rounded-xl border ${
+                        termUnits === opt.key
+                          ? "bg-forest-900 border-forest-900"
+                          : "bg-white border-border"
+                      }`}
+                      onPress={() => setTermUnits(opt.key)}
+                    >
+                      <Text
+                        className={`text-xs font-bold ${
+                          termUnits === opt.key ? "text-white" : "text-ink"
+                        }`}
+                      >
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Due Date Presets for flat / fixed / none */}
+            {["none", "fixed_amount", "percentage_flat"].includes(
+              interestType,
+            ) && (
+              <>
+                <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
+                  Due Date
+                </Text>
+                <View className="flex-row flex-wrap gap-2 mb-4">
+                  {[
+                    { key: "15", label: "15 Days" },
+                    { key: "30", label: "30 Days" },
+                    { key: "60", label: "60 Days" },
+                    { key: "none", label: "No Due Date" },
+                  ].map((opt) => (
+                    <Pressable
+                      key={opt.key}
+                      className={`py-2 px-3 rounded-xl border ${
+                        dueDateDays === opt.key
+                          ? "bg-forest-900 border-forest-900"
+                          : "bg-white border-border"
+                      }`}
+                      onPress={() => setDueDateDays(opt.key as any)}
+                    >
+                      <Text
+                        className={`text-xs font-bold ${
+                          dueDateDays === opt.key ? "text-white" : "text-ink"
+                        }`}
+                      >
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {/* Notes */}
+            <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
+              Notes (Optional)
             </Text>
-          </Pressable>
-        </ScrollView>
+            <TextInput
+              placeholder="e.g. For store inventory"
+              placeholderTextColor="#9CA3AF"
+              value={loanNotes}
+              onChangeText={setLoanNotes}
+              className="rounded-xl border border-border bg-white px-3.5 py-3 text-base text-ink mb-4"
+            />
+
+            {/* Calculation Preview */}
+            <View className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 gap-2 mb-6">
+              <Text className="text-[11px] font-extrabold text-forest-900 tracking-wider">
+                LOAN SUMMARY PREVIEW
+              </Text>
+              <View className="flex-row justify-between items-center">
+                <Text className="text-xs text-slate">Principal Amount:</Text>
+                <Text className="text-sm font-semibold text-ink">
+                  {formatPHP(principalMinor)}
+                </Text>
+              </View>
+              <View className="flex-row justify-between items-center">
+                <View>
+                  <Text className="text-xs text-slate">Interest / Charge:</Text>
+                  {termExplanation ? (
+                    <Text className="text-[10px] text-amber-700 font-medium">
+                      {termExplanation}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text className="text-sm font-semibold text-amber-700">
+                  +{formatPHP(calculatedFeeMinor)}
+                </Text>
+              </View>
+              <View className="h-px bg-emerald-200 my-1" />
+              <View className="flex-row justify-between items-center">
+                <Text className="text-sm font-black text-forest-900">
+                  Total to Collect:
+                </Text>
+                <Text className="text-lg font-black text-forest-900">
+                  {formatPHP(totalLoanDueMinor)}
+                </Text>
+              </View>
+            </View>
+
+            <Pressable
+              disabled={isSubmitting}
+              className={`py-4 rounded-xl items-center justify-center mb-10 ${
+                isSubmitting ? "bg-bai/60" : "bg-bai active:opacity-90"
+              }`}
+              onPress={handleSave}
+            >
+              <Text className="text-white font-bold text-base">
+                {isSubmitting ? "Creating Loan..." : "Create Loan"}
+              </Text>
+            </Pressable>
+          </ScrollView>
         )}
 
-        {feedback && (
-          <FeedbackModal
-            visible={feedback.visible}
-            type={feedback.type}
-            mood={feedback.type === "success" ? "celebrate" : "thinking"}
-            title={feedback.title}
-            message={feedback.message}
-            buttonText={feedback.type === "success" ? "Done" : "Try Again"}
-            onClose={handleFeedbackClose}
-          />
-        )}
-      </KeyboardAvoidingView>
+          {feedback && (
+            <FeedbackModal
+              visible={feedback.visible}
+              type={feedback.type}
+              mood={feedback.type === "success" ? "celebrate" : "thinking"}
+              title={feedback.title}
+              message={feedback.message}
+              buttonText={feedback.type === "success" ? "Done" : "Try Again"}
+              onClose={handleFeedbackClose}
+            />
+          )}
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </Modal>
   );
 }

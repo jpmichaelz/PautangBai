@@ -7,6 +7,7 @@ import {
   RefreshControl,
   Modal,
   StyleSheet,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSQLiteContext } from "expo-sqlite";
@@ -19,6 +20,7 @@ import { Borrower, Loan, Payment } from "@/types/database";
 import { formatPHP } from "@/services/interest/calculateInterest";
 import { calculateLoanBalance } from "@/services/balance/calculateBalance";
 import { Frog } from "@/components/frog";
+import { enforceImmersiveSystemBars } from "@/utils/system-bars";
 import {
   LoanFormModal,
   PaymentFormModal,
@@ -42,6 +44,7 @@ export default function HomeScreen() {
   const [isLoanModalVisible, setIsLoanModalVisible] = useState(false);
   const [isPayModalVisible, setIsPayModalVisible] = useState(false);
   const [isBorrowerModalVisible, setIsBorrowerModalVisible] = useState(false);
+  const [editingBorrower, setEditingBorrower] = useState<Borrower | null>(null);
   const [isNotifModalVisible, setIsNotifModalVisible] = useState(false);
   const [selectedLoanForPay, setSelectedLoanForPay] = useState<Loan | null>(null);
 
@@ -301,6 +304,7 @@ export default function HomeScreen() {
               className="flex-1 flex-row items-center justify-center gap-2 py-3.5 rounded-2xl bg-bai active:opacity-90 shadow-xs"
               onPress={() => {
                 if (borrowers.length === 0) {
+                  setEditingBorrower(null);
                   setIsBorrowerModalVisible(true);
                   return;
                 }
@@ -315,7 +319,10 @@ export default function HomeScreen() {
 
             <Pressable
               className="flex-1 flex-row items-center justify-center gap-2 py-3.5 rounded-2xl bg-white border border-border active:bg-slate-50 shadow-xs"
-              onPress={() => setIsBorrowerModalVisible(true)}
+              onPress={() => {
+                setEditingBorrower(null);
+                setIsBorrowerModalVisible(true);
+              }}
             >
               <Ionicons name="person-add" size={17} color="#173D35" />
               <Text className="text-forest-900 font-extrabold text-sm tracking-wide">
@@ -416,7 +423,10 @@ export default function HomeScreen() {
             loadAllData();
           }}
           onSuccess={() => loadAllData()}
-          onAddBorrowerPress={() => setIsBorrowerModalVisible(true)}
+          onAddBorrowerPress={() => {
+            setEditingBorrower(null);
+            setIsBorrowerModalVisible(true);
+          }}
         />
 
         <PaymentFormModal
@@ -437,11 +447,14 @@ export default function HomeScreen() {
 
         <BorrowerFormModal
           visible={isBorrowerModalVisible}
+          editingBorrower={editingBorrower}
           onClose={() => {
             setIsBorrowerModalVisible(false);
+            setEditingBorrower(null);
             loadAllData();
           }}
           onSuccess={() => loadAllData()}
+          onDelete={() => loadAllData()}
         />
 
         {/* Loan Detail Modal */}
@@ -463,13 +476,21 @@ export default function HomeScreen() {
             setIsPayModalVisible(true);
           }}
           onDeleteLoan={handleDeleteLoan}
+          onEditBorrower={(borrower) => {
+            setIsDetailModalVisible(false);
+            setEditingBorrower(borrower);
+            setIsBorrowerModalVisible(true);
+          }}
         />
 
         {/* Notification Modal */}
         <Modal
           visible={isNotifModalVisible}
           animationType="slide"
-          presentationStyle="pageSheet"
+          presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
+          statusBarTranslucent
+          navigationBarTranslucent
+          onShow={enforceImmersiveSystemBars}
           onRequestClose={() => setIsNotifModalVisible(false)}
         >
           <SafeAreaView className="flex-1 bg-paper">

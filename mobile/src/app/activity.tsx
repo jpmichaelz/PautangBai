@@ -5,7 +5,6 @@ import {
   FlatList,
   Pressable,
   Modal,
-  Alert,
   RefreshControl,
   StyleSheet,
 } from "react-native";
@@ -15,19 +14,72 @@ import { Ionicons } from "@expo/vector-icons";
 import { borrowerHelper } from "@/db-helpers/borrowers";
 import { loanHelper } from "@/db-helpers/loans";
 import { paymentHelper } from "@/db-helpers/payments";
-import { Loan, Payment } from "@/types/database";
+import { Borrower, Loan, Payment } from "@/types/database";
 import { formatPHP } from "@/services/interest/calculateInterest";
+import { parseLocalDate } from "@/services/date/dateUtils";
 import { Frog } from "@/components/frog";
+import { LoanDetailModal, PaymentFormModal } from "@/components/forms";
+import { enforceImmersiveSystemBars } from "@/utils/system-bars";
 import { useFocusEffect } from "expo-router";
 import DashboardBg from "@/assets/images/DASHBOARD_BG.svg";
 import PautangBaiLogo from "@/assets/images/PAUTANGBAI_LOGO.svg";
 
+type ActivityFilter = "all" | "payment" | "loan";
+
+const SHORT_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+function formatReadableDate(dateStr?: string | null): string {
+  if (!dateStr) return "Open Ended";
+  const d = parseLocalDate(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return `${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
+function getInitials(name?: string): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function formatInterestBadge(loan: Loan): string {
+  const rate = loan.interest_rate || "0";
+  switch (loan.interest_type) {
+    case "percentage_monthly":
+      return `${rate}% / mo`;
+    case "percentage_weekly":
+      return `${rate}% / wk`;
+    case "percentage_daily":
+      return `${rate}% / day`;
+    case "percentage_flat":
+      return `${rate}% flat`;
+    case "fixed_amount":
+      return `+${formatPHP(loan.fixed_charge_minor)} fee`;
+    case "none":
+    default:
+      return "0% interest";
+  }
+}
 
 interface ActivityItem {
   id: string;
   type: "loan" | "payment";
   date: string;
   borrowerName: string;
+  borrower?: Borrower;
   amountMinor: number;
   subtitle: string;
   rawPayment?: Payment;
@@ -37,9 +89,23 @@ interface ActivityItem {
 export default function ActivityScreen() {
   const db = useSQLiteContext();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
-  const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(null);
-  const [isVoiding, setIsVoiding] = useState(false);
+  const [allPayments, setAllPayments] = useState<Payment[]>([]);
+  const [filterType, setFilterType] = useState<ActivityFilter>("all");
+  const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(
+    null,
+  );
   const [refreshing, setRefreshing] = useState(false);
+
+  // Full Loan Detail & Payment Modals
+  const [selectedLoanForDetail, setSelectedLoanForDetail] =
+    useState<Loan | null>(null);
+  const [selectedBorrowerForDetail, setSelectedBorrowerForDetail] =
+    useState<Borrower | null>(null);
+  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
+  const [selectedLoanForPay, setSelectedLoanForPay] = useState<Loan | null>(
+    null,
+  );
+  const [isPayModalVisible, setIsPayModalVisible] = useState(false);
 
   const loadActivities = useCallback(async () => {
     try {
@@ -49,8 +115,10 @@ export default function ActivityScreen() {
         paymentHelper.getAll(db),
       ]);
 
-      const borrowerMap = new Map<string, string>();
-      borrowers.forEach((b) => borrowerMap.set(b.id, b.name));
+      setAllPayments(payments);
+
+      const borrowerMap = new Map<string, Borrower>();
+      borrowers.forEach((b) => borrowerMap.set(b.id, b));
 
       const loanMap = new Map<string, Loan>();
       loans.forEach((l) => loanMap.set(l.id, l));
@@ -58,26 +126,16 @@ export default function ActivityScreen() {
       const items: ActivityItem[] = [];
 
       loans.forEach((l) => {
-        const borrowerName =
-          borrowerMap.get(l.borrower_id) || "Unknown Borrower";
-        let feeDesc = "No interest";
-        if (l.interest_type === "fixed_amount") {
-          feeDesc = `+${formatPHP(l.fixed_charge_minor)} fixed fee`;
-        } else if (l.interest_type === "percentage_flat") {
-          feeDesc = `${l.interest_rate}% flat fee`;
-        } else if (l.interest_type === "percentage_daily") {
-          feeDesc = `${l.interest_rate}% daily`;
-        } else if (l.interest_type === "percentage_weekly") {
-          feeDesc = `${l.interest_rate}% weekly`;
-        } else if (l.interest_type === "percentage_monthly") {
-          feeDesc = `${l.interest_rate}% monthly`;
-        }
+        const borrower = borrowerMap.get(l.borrower_id);
+        const borrowerName = borrower?.name || "Unknown Borrower";
+        const feeDesc = formatInterestBadge(l);
 
         items.push({
           id: "act_l_" + l.id,
           type: "loan",
           date: l.loan_date,
           borrowerName,
+          borrower,
           amountMinor: l.principal_minor,
           subtitle: `New Loan • ${feeDesc}`,
           rawLoan: l,
@@ -86,16 +144,16 @@ export default function ActivityScreen() {
 
       payments.forEach((p) => {
         const loan = loanMap.get(p.loan_id);
-        const borrowerName = loan
-          ? borrowerMap.get(loan.borrower_id) || "Unknown"
-          : "Unknown";
-        const method = p.payment_method ? ` via ${p.payment_method}` : "";
+        const borrower = loan ? borrowerMap.get(loan.borrower_id) : undefined;
+        const borrowerName = borrower?.name || "Unknown Borrower";
+        const method = p.payment_method ? ` • ${p.payment_method}` : "";
 
         items.push({
           id: "act_p_" + p.id,
           type: "payment",
           date: p.payment_date,
           borrowerName,
+          borrower,
           amountMinor: p.amount_minor,
           subtitle: `Payment Received${method}`,
           rawPayment: p,
@@ -126,39 +184,13 @@ export default function ActivityScreen() {
     setRefreshing(false);
   }, [loadActivities]);
 
-  const handleVoidPayment = (item: ActivityItem) => {
-    if (!item.rawPayment || isVoiding) return;
-
-    Alert.alert(
-      "Void Payment?",
-      `Are you sure you want to void this payment of ${formatPHP(
-        item.amountMinor,
-      )}? This amount will be added back to the loan balance.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Void Payment",
-          style: "destructive",
-          onPress: async () => {
-            setIsVoiding(true);
-            try {
-              await paymentHelper.reverse(db, item.rawPayment!.id);
-              setSelectedActivity(null);
-              await loadActivities();
-              Alert.alert(
-                "Payment Voided",
-                `Payment of ${formatPHP(item.amountMinor)} was reversed and balance restored.`,
-              );
-            } catch (err) {
-              console.error("Failed to void payment:", err);
-              Alert.alert("Error", "Failed to void payment. Please try again.");
-            } finally {
-              setIsVoiding(false);
-            }
-          },
-        },
-      ],
-    );
+  const handleDeleteLoan = async (loan: Loan) => {
+    try {
+      await loanHelper.softDelete(db, loan.id);
+      await loadActivities();
+    } catch (err) {
+      console.error("Failed to delete loan:", err);
+    }
   };
 
   const renderAllocationDetails = (payment?: Payment) => {
@@ -166,20 +198,28 @@ export default function ActivityScreen() {
     try {
       const parsed = JSON.parse(payment.allocation_json);
       return (
-        <View className="rounded-xl bg-slate-50 border border-slate-200 p-3 gap-1.5 mt-2">
-          <Text className="text-[11px] font-bold text-slate uppercase tracking-wider">
-            Payment Breakdown
-          </Text>
-          <View className="flex-row justify-between">
-            <Text className="text-xs text-slate">Applied to Fee/Interest:</Text>
-            <Text className="text-xs font-bold text-ink">
-              {formatPHP(parsed.appliedToInterestMinor || 0)}
+        <View className="pt-3 border-t border-slate-200/80 flex-row">
+          <View className="flex-1">
+            <Text className="text-[10px] font-bold text-slate uppercase tracking-wider">
+              Applied to Principal
+            </Text>
+            <Text
+              style={{ fontVariant: ["tabular-nums"] }}
+              className="text-sm font-extrabold text-ink mt-0.5"
+            >
+              {formatPHP(parsed.appliedToPrincipalMinor || 0)}
             </Text>
           </View>
-          <View className="flex-row justify-between">
-            <Text className="text-xs text-slate">Applied to Principal:</Text>
-            <Text className="text-xs font-bold text-ink">
-              {formatPHP(parsed.appliedToPrincipalMinor || 0)}
+          <View className="w-px bg-slate-200 mx-3" />
+          <View className="flex-1 items-end">
+            <Text className="text-[10px] font-bold text-slate uppercase tracking-wider">
+              Applied to Interest
+            </Text>
+            <Text
+              style={{ fontVariant: ["tabular-nums"] }}
+              className="text-sm font-extrabold text-amber-700 mt-0.5"
+            >
+              {formatPHP(parsed.appliedToInterestMinor || 0)}
             </Text>
           </View>
         </View>
@@ -190,9 +230,14 @@ export default function ActivityScreen() {
   };
 
   const paymentsCount = activities.filter((a) => a.type === "payment").length;
+  const loansCount = activities.filter((a) => a.type === "loan").length;
   const totalCollectedMinor = activities
     .filter((a) => a.type === "payment")
     .reduce((sum, a) => sum + a.amountMinor, 0);
+
+  const filteredActivities = activities.filter((a) =>
+    filterType === "all" ? true : a.type === filterType,
+  );
 
   return (
     <View className="flex-1 bg-paper">
@@ -204,263 +249,450 @@ export default function ActivityScreen() {
         />
       </View>
       <SafeAreaView className="flex-1" edges={["top"]}>
-
-      {/* Top Header */}
-      <View className="flex-row justify-between items-center px-4 pt-3 pb-2">
-        <View className="justify-center">
-          <PautangBaiLogo width={135} height={42} />
-        </View>
-
-        <View className="flex-row items-center px-2.5 py-1 rounded-full bg-emerald-100 gap-1.5">
-          <Ionicons name="receipt-outline" size={14} color="#065F46" />
-          <Text className="text-xs font-bold text-emerald-800">
-            {activities.length} Records
-          </Text>
-        </View>
-      </View>
-
-      <FlatList
-        data={activities}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={
-          <View className="mb-3">
-            {/* Page Container Banner */}
-            <View className="rounded-3xl p-5 bg-forest-900 shadow-lg">
-              <View className="flex-row items-center justify-between mb-2">
-                <View className="flex-row items-center px-2.5 py-0.5 rounded-full bg-white/10 self-start">
-                  <Text className="text-mint text-[10px] font-black tracking-widest uppercase">
-                    TRANSACTION LEDGER
-                  </Text>
-                </View>
-              </View>
-
-              <View className="flex-row items-center gap-2 mb-3">
-                <View className="flex-1">
-                  <Text className="text-white text-2xl font-black tracking-tight">
-                    Activity
-                  </Text>
-                  <Text className="text-slate-300 text-xs font-medium mt-0.5">
-                    Audit trail of loans & payments
-                  </Text>
-                </View>
-                <Frog mood="payment" size={68} />
-              </View>
-
-              <View className="flex-row pt-3 border-t border-white/15">
-                <View className="flex-1">
-                  <Text className="text-mint text-[11px] font-semibold mb-0.5">
-                    Payments Recorded
-                  </Text>
-                  <Text className="text-white text-base font-bold">
-                    {paymentsCount}
-                  </Text>
-                </View>
-                <View className="w-px bg-white/15 mx-3" />
-                <View className="flex-1">
-                  <Text className="text-mint text-[11px] font-semibold mb-0.5">
-                    Total Collected
-                  </Text>
-                  <Text className="text-emerald-400 text-base font-bold">
-                    {formatPHP(totalCollectedMinor)}
-                  </Text>
-                </View>
-              </View>
-            </View>
+        {/* Top Header */}
+        <View className="flex-row justify-between items-center px-4 pt-3 pb-2">
+          <View className="justify-center">
+            <PautangBaiLogo width={135} height={42} />
           </View>
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor="#287A63"
-            colors={["#287A63"]}
-            enabled={!isVoiding}
-          />
-        }
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 4,
-          paddingBottom: 100,
-          gap: 10,
-        }}
-        ListEmptyComponent={
-          <View className="items-center justify-center py-16 px-4">
-            <View className="mb-2">
-              <Frog mood="empty" size={120} />
-            </View>
-            <Text className="text-base font-bold text-forest-900 mb-1">
-              No activity yet
-            </Text>
-            <Text className="text-xs text-slate text-center leading-5 max-w-[260px]">
-              When you record a loan or payment, the transaction history will
-              appear here.
+
+          <View className="flex-row items-center px-2.5 py-1 rounded-full bg-emerald-100 gap-1.5">
+            <Ionicons name="receipt-outline" size={14} color="#065F46" />
+            <Text className="text-xs font-bold text-emerald-800">
+              {activities.length} Records
             </Text>
           </View>
-        }
-        renderItem={({ item }) => {
-          const isLoan = item.type === "loan";
+        </View>
 
-          return (
-            <Pressable
-              onPress={() => setSelectedActivity(item)}
-              className="flex-row items-center p-3.5 rounded-2xl bg-white border border-border gap-3 shadow-xs active:bg-slate-50"
-            >
-              <View
-                className={`w-10 h-10 rounded-full items-center justify-center ${
-                  isLoan ? "bg-amber-100" : "bg-emerald-100"
-                }`}
-              >
-                <Ionicons
-                  name={isLoan ? "arrow-up-outline" : "arrow-down-outline"}
-                  size={20}
-                  color={isLoan ? "#D97706" : "#16A34A"}
-                />
+        <FlatList
+          data={filteredActivities}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={
+            <View className="mb-2 gap-3.5">
+              {/* Page Container Banner */}
+              <View className="rounded-3xl p-5 bg-forest-900 shadow-xs">
+                <View className="flex-row items-center justify-between mb-3.5">
+                  <View className="flex-1">
+                    <Text className="text-white text-2xl font-black tracking-tight">
+                      Activity
+                    </Text>
+                    <Text className="text-mint/80 text-xs font-medium mt-1">
+                      Audit trail of loans & payments
+                    </Text>
+                  </View>
+                  <Frog mood="payment" size={56} />
+                </View>
+
+                <View className="flex-row items-center pt-3.5 border-t border-white/15">
+                  <View className="flex-1">
+                    <Text className="text-mint/80 text-xs font-semibold">
+                      Total Collected
+                    </Text>
+                    <Text
+                      style={{ fontVariant: ["tabular-nums"] }}
+                      className="text-emerald-400 text-xl font-black mt-0.5"
+                    >
+                      {formatPHP(totalCollectedMinor)}
+                    </Text>
+                  </View>
+                  <View className="w-px h-8 bg-white/15 mx-4" />
+                  <View>
+                    <Text className="text-mint/80 text-xs font-semibold">
+                      Payments
+                    </Text>
+                    <Text
+                      style={{ fontVariant: ["tabular-nums"] }}
+                      className="text-white text-lg font-bold mt-0.5"
+                    >
+                      {paymentsCount}
+                    </Text>
+                  </View>
+                  <View className="w-px h-8 bg-white/15 mx-4" />
+                  <View>
+                    <Text className="text-mint/80 text-xs font-semibold">
+                      Loans
+                    </Text>
+                    <Text
+                      style={{ fontVariant: ["tabular-nums"] }}
+                      className="text-white text-lg font-bold mt-0.5"
+                    >
+                      {loansCount}
+                    </Text>
+                  </View>
+                </View>
               </View>
 
-              <View className="flex-1">
-                <Text className="text-sm font-bold text-ink">
-                  {item.borrowerName}
-                </Text>
-                <Text className="text-xs text-slate mt-0.5">
-                  {item.subtitle}
-                </Text>
-                <Text className="text-[11px] text-slate-400 mt-0.5">
-                  {item.date}
-                </Text>
-              </View>
-
-              <View className="items-end">
-                <Text
-                  className={`text-sm font-black ${isLoan ? "text-ink" : "text-emerald-600"}`}
-                >
-                  {isLoan ? "-" : "+"}
-                  {formatPHP(item.amountMinor)}
-                </Text>
-                <Text className="text-[10px] text-slate-400 mt-0.5">View &gt;</Text>
-              </View>
-            </Pressable>
-          );
-        }}
-      />
-
-      {/* Transaction Details & Void Action Modal */}
-      <Modal
-        visible={!!selectedActivity}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSelectedActivity(null)}
-      >
-        <Pressable
-          className="flex-1 bg-black/40 justify-center px-5"
-          onPress={() => setSelectedActivity(null)}
-        >
-          <Pressable
-            className="bg-white rounded-3xl p-5 shadow-lg border border-border"
-            onPress={(e) => e.stopPropagation()}
-          >
-            {selectedActivity && (
-              <View className="gap-4">
-                <View className="flex-row justify-between items-center">
-                  <View className="flex-row items-center gap-2">
-                    <View
-                      className={`w-8 h-8 rounded-full items-center justify-center ${
-                        selectedActivity.type === "loan"
-                          ? "bg-amber-100"
-                          : "bg-emerald-100"
+              {/* Filter Chips */}
+              <View className="flex-row gap-2">
+                {(
+                  [
+                    { key: "all", label: `All (${activities.length})` },
+                    { key: "payment", label: `Payments (${paymentsCount})` },
+                    { key: "loan", label: `Loans (${loansCount})` },
+                  ] as const
+                ).map((chip) => {
+                  const isSelected = filterType === chip.key;
+                  return (
+                    <Pressable
+                      key={chip.key}
+                      onPress={() => setFilterType(chip.key)}
+                      className={`py-2 px-4 rounded-full border ${
+                        isSelected
+                          ? "bg-forest-900 border-forest-900"
+                          : "bg-white/90 border-border active:bg-white"
                       }`}
                     >
-                      <Ionicons
-                        name={
-                          selectedActivity.type === "loan"
-                            ? "arrow-up-outline"
-                            : "arrow-down-outline"
-                        }
-                        size={16}
-                        color={
-                          selectedActivity.type === "loan"
-                            ? "#D97706"
-                            : "#16A34A"
-                        }
-                      />
-                    </View>
-                    <Text className="text-base font-extrabold text-forest-900">
-                      {selectedActivity.type === "loan"
-                        ? "Loan Transaction"
-                        : "Payment Record"}
-                    </Text>
-                  </View>
-                  <Pressable
-                    hitSlop={12}
-                    onPress={() => setSelectedActivity(null)}
-                    className="p-1 rounded-full active:bg-slate-100"
-                  >
-                    <Ionicons name="close" size={20} color="#64748B" />
-                  </Pressable>
+                      <Text
+                        className={`text-xs font-bold ${
+                          isSelected ? "text-white" : "text-forest-900"
+                        }`}
+                      >
+                        {chip.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor="#287A63"
+              colors={["#287A63"]}
+              enabled={
+                !selectedActivity && !isDetailModalVisible && !isPayModalVisible
+              }
+            />
+          }
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 4,
+            paddingBottom: 100,
+            gap: 10,
+          }}
+          ListEmptyComponent={
+            <View className="items-center justify-center py-16 px-4">
+              <View className="mb-2">
+                <Frog mood="empty" size={120} />
+              </View>
+              <Text className="text-base font-bold text-forest-900 mb-1">
+                No activity yet
+              </Text>
+              <Text className="text-xs text-slate text-center leading-5 max-w-[260px]">
+                When you record a loan or payment, the transaction history will
+                appear here.
+              </Text>
+            </View>
+          }
+          renderItem={({ item }) => {
+            const isLoan = item.type === "loan";
+
+            return (
+              <Pressable
+                onPress={() => setSelectedActivity(item)}
+                className="flex-row items-center p-4 rounded-2xl bg-white border border-border gap-3.5 shadow-xs active:bg-slate-50"
+              >
+                <View
+                  className={`w-11 h-11 rounded-full items-center justify-center border shrink-0 ${
+                    isLoan
+                      ? "bg-amber-50 border-amber-200"
+                      : "bg-emerald-50 border-emerald-200"
+                  }`}
+                >
+                  <Ionicons
+                    name={isLoan ? "arrow-up-outline" : "arrow-down-outline"}
+                    size={20}
+                    color={isLoan ? "#D97706" : "#16A34A"}
+                  />
                 </View>
 
-                {/* Amount Display */}
-                <View className="items-center py-2 bg-slate-50 rounded-2xl border border-slate-100">
-                  <Text className="text-xs font-semibold text-slate">Amount</Text>
-                  <Text className="text-2xl font-black text-forest-900 mt-0.5">
-                    {formatPHP(selectedActivity.amountMinor)}
+                <View className="flex-1 overflow-hidden">
+                  <Text
+                    numberOfLines={1}
+                    className="text-base font-extrabold text-ink"
+                  >
+                    {item.borrowerName}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    className="text-xs text-slate font-medium mt-0.5"
+                  >
+                    {item.subtitle}
+                  </Text>
+                  <Text className="text-[11px] text-slate/80 font-medium mt-0.5">
+                    {formatReadableDate(item.date)}
                   </Text>
                 </View>
 
-                {/* Detail rows */}
-                <View className="gap-2.5 px-1">
-                  <View className="flex-row justify-between">
-                    <Text className="text-xs text-slate">Borrower:</Text>
-                    <Text className="text-xs font-bold text-ink">
-                      {selectedActivity.borrowerName}
-                    </Text>
-                  </View>
-                  <View className="flex-row justify-between">
-                    <Text className="text-xs text-slate">Date:</Text>
-                    <Text className="text-xs font-bold text-ink">
-                      {selectedActivity.date}
-                    </Text>
-                  </View>
-                  {selectedActivity.rawPayment?.payment_method && (
-                    <View className="flex-row justify-between">
-                      <Text className="text-xs text-slate">Method:</Text>
-                      <Text className="text-xs font-bold text-ink">
-                        {selectedActivity.rawPayment.payment_method}
-                      </Text>
-                    </View>
-                  )}
-                  {selectedActivity.rawPayment?.notes && (
-                    <View className="flex-row justify-between">
-                      <Text className="text-xs text-slate">Notes:</Text>
-                      <Text className="text-xs font-bold text-ink">
-                        {selectedActivity.rawPayment.notes}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Allocation breakdown for payments */}
-                {selectedActivity.type === "payment" &&
-                  renderAllocationDetails(selectedActivity.rawPayment)}
-
-                {/* Void Payment Action */}
-                {selectedActivity.type === "payment" && (
-                  <Pressable
-                    disabled={isVoiding}
-                    onPress={() => handleVoidPayment(selectedActivity)}
-                    className="mt-2 py-3 rounded-xl bg-red-50 border border-red-200 items-center justify-center active:bg-red-100"
+                <View className="items-end shrink-0">
+                  <Text
+                    style={{ fontVariant: ["tabular-nums"] }}
+                    className={`text-base font-black ${
+                      isLoan ? "text-ink" : "text-emerald-700"
+                    }`}
                   >
-                    <Text className="text-red-700 font-extrabold text-xs">
-                      {isVoiding ? "Voiding..." : "Bawi-on ang Bayad (Void Payment)"}
+                    {isLoan ? "-" : "+"}
+                    {formatPHP(item.amountMinor)}
+                  </Text>
+                  <View className="flex-row items-center gap-0.5 mt-1">
+                    <Text className="text-[11px] font-bold text-slate">
+                      Receipt
                     </Text>
-                  </Pressable>
-                )}
-              </View>
-            )}
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </SafeAreaView>
-  </View>
-);
-}
+                    <Ionicons
+                      name="chevron-forward"
+                      size={12}
+                      color="#66716D"
+                    />
+                  </View>
+                </View>
+              </Pressable>
+            );
+          }}
+        />
 
+        {/* Transaction Receipt Bottom Sheet Modal */}
+        <Modal
+          visible={!!selectedActivity}
+          transparent
+          statusBarTranslucent
+          navigationBarTranslucent
+          onShow={enforceImmersiveSystemBars}
+          animationType="fade"
+          onRequestClose={() => setSelectedActivity(null)}
+        >
+          <Pressable
+            className="flex-1 bg-black/45 justify-end"
+            onPress={() => setSelectedActivity(null)}
+          >
+            <Pressable
+              className="bg-white rounded-t-3xl pt-3 px-5 pb-8 border-t border-border relative overflow-hidden"
+              onPress={(e) => e.stopPropagation()}
+            >
+              {/* Drag Handle */}
+              <View className="w-10 h-1 rounded-full bg-slate-200 self-center mb-4" />
+
+              {selectedActivity && (
+                <View className="gap-4">
+                  {/* Docked Top-Right Corner Type Badge */}
+                  {selectedActivity.type === "payment" ? (
+                    <View className="absolute -top-3 right-0 px-3.5 py-1.5 rounded-bl-2xl bg-emerald-100 border-b border-l border-emerald-300 flex-row items-center gap-1.5">
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={13}
+                        color="#15803D"
+                      />
+                      <Text className="text-[11px] font-black text-emerald-900 uppercase tracking-wide">
+                        Payment Record
+                      </Text>
+                    </View>
+                  ) : (
+                    <View className="absolute -top-3 right-0 px-3.5 py-1.5 rounded-bl-2xl bg-amber-100 border-b border-l border-amber-300 flex-row items-center gap-1.5">
+                      <Ionicons
+                        name="arrow-up-circle"
+                        size={13}
+                        color="#B45309"
+                      />
+                      <Text className="text-[11px] font-black text-amber-900 uppercase tracking-wide">
+                        Loan Released
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Zone 1: Borrower Identity */}
+                  <View className="flex-row items-center gap-3.5 pr-28">
+                    <View className="w-12 h-12 rounded-full bg-mint/40 border border-border items-center justify-center shrink-0">
+                      <Text className="text-base font-black text-forest-900">
+                        {getInitials(selectedActivity.borrowerName)}
+                      </Text>
+                    </View>
+                    <View className="flex-1 overflow-hidden">
+                      <Text
+                        numberOfLines={1}
+                        className="text-lg font-extrabold text-ink"
+                      >
+                        {selectedActivity.borrowerName}
+                      </Text>
+                      <Text className="text-xs text-slate font-medium mt-0.5">
+                        {formatReadableDate(selectedActivity.date)}
+                        {selectedActivity.rawPayment?.payment_method
+                          ? `  •  via ${selectedActivity.rawPayment.payment_method}`
+                          : ""}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Zone 2: Financial Receipt Box */}
+                  <View className="rounded-2xl p-4 bg-slate-50 border border-slate-100 gap-3">
+                    <View className="flex-row items-start justify-between">
+                      <View>
+                        <Text className="text-[11px] font-bold text-slate uppercase tracking-wider">
+                          {selectedActivity.type === "payment"
+                            ? "Amount Received"
+                            : "Principal Released"}
+                        </Text>
+                        <Text
+                          style={{ fontVariant: ["tabular-nums"] }}
+                          className={`text-3xl font-black tracking-tight mt-0.5 ${
+                            selectedActivity.type === "payment"
+                              ? "text-emerald-700"
+                              : "text-forest-900"
+                          }`}
+                        >
+                          {selectedActivity.type === "payment" ? "+" : "-"}
+                          {formatPHP(selectedActivity.amountMinor)}
+                        </Text>
+                      </View>
+
+                      {/* Sync or Interest Badge */}
+                      {selectedActivity.type === "payment" ? (
+                        <View className="px-2.5 py-1 rounded-full bg-white border border-slate-200 flex-row items-center gap-1">
+                          <Ionicons
+                            name={
+                              selectedActivity.rawPayment?.sync_status ===
+                              "synced"
+                                ? "cloud-done-outline"
+                                : "phone-portrait-outline"
+                            }
+                            size={12}
+                            color="#173D35"
+                          />
+                          <Text className="text-[10px] font-extrabold text-forest-900">
+                            {selectedActivity.rawPayment?.sync_status ===
+                            "synced"
+                              ? "Synced"
+                              : "Saved on device"}
+                          </Text>
+                        </View>
+                      ) : selectedActivity.rawLoan ? (
+                        <View className="px-2.5 py-1 rounded-full bg-white border border-slate-200">
+                          <Text className="text-[10px] font-extrabold text-forest-900">
+                            {formatInterestBadge(selectedActivity.rawLoan)}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    {/* Payment Allocation Breakdown OR Loan Due Date Breakdown */}
+                    {selectedActivity.type === "payment" ? (
+                      renderAllocationDetails(selectedActivity.rawPayment)
+                    ) : selectedActivity.rawLoan ? (
+                      <View className="pt-3 border-t border-slate-200/80 flex-row">
+                        <View className="flex-1">
+                          <Text className="text-[10px] font-bold text-slate uppercase tracking-wider">
+                            Interest / Fee
+                          </Text>
+                          <Text
+                            style={{ fontVariant: ["tabular-nums"] }}
+                            className="text-sm font-extrabold text-amber-700 mt-0.5"
+                          >
+                            {formatPHP(
+                              selectedActivity.rawLoan.fixed_charge_minor || 0,
+                            )}
+                          </Text>
+                        </View>
+                        <View className="w-px bg-slate-200 mx-3" />
+                        <View className="flex-1 items-end">
+                          <Text className="text-[10px] font-bold text-slate uppercase tracking-wider">
+                            Due Date
+                          </Text>
+                          <Text className="text-sm font-extrabold text-ink mt-0.5">
+                            {formatReadableDate(
+                              selectedActivity.rawLoan.due_date,
+                            )}
+                          </Text>
+                        </View>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {/* Notes if present */}
+                  {(selectedActivity.rawPayment?.notes ||
+                    selectedActivity.rawLoan?.notes) && (
+                    <View className="p-3 rounded-2xl bg-mint/20 border border-border/80 flex-row items-start gap-2">
+                      <Ionicons
+                        name="document-text-outline"
+                        size={15}
+                        color="#173D35"
+                        style={{ marginTop: 1 }}
+                      />
+                      <Text className="flex-1 text-xs text-forest-900 font-medium leading-4">
+                        {selectedActivity.rawPayment?.notes ||
+                          selectedActivity.rawLoan?.notes}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Footer Actions */}
+                  <View className="flex-row items-center gap-2.5 pt-1">
+                    <Pressable
+                      onPress={() => setSelectedActivity(null)}
+                      className="flex-1 py-3.5 rounded-2xl border border-border bg-white items-center justify-center active:bg-slate-50"
+                    >
+                      <Text className="text-xs font-extrabold text-forest-900">
+                        Close
+                      </Text>
+                    </Pressable>
+
+                    {selectedActivity.rawLoan && (
+                      <Pressable
+                        onPress={() => {
+                          const loan = selectedActivity.rawLoan!;
+                          const borrower = selectedActivity.borrower || null;
+                          setSelectedActivity(null);
+                          setSelectedLoanForDetail(loan);
+                          setSelectedBorrowerForDetail(borrower);
+                          setIsDetailModalVisible(true);
+                        }}
+                        className="flex-1 py-3.5 rounded-2xl bg-forest-900 flex-row items-center justify-center gap-1.5 active:opacity-90"
+                      >
+                        <Text className="text-xs font-extrabold text-white">
+                          View Full Loan
+                        </Text>
+                        <Ionicons
+                          name="arrow-forward"
+                          size={14}
+                          color="#FFFFFF"
+                        />
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+              )}
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* Full Loan Detail Modal */}
+        <LoanDetailModal
+          visible={isDetailModalVisible}
+          onClose={() => {
+            setIsDetailModalVisible(false);
+            loadActivities();
+          }}
+          loan={selectedLoanForDetail}
+          borrower={selectedBorrowerForDetail}
+          payments={allPayments}
+          onRecordPayment={(loan) => {
+            setSelectedLoanForPay(loan);
+            setIsPayModalVisible(true);
+          }}
+          onDeleteLoan={handleDeleteLoan}
+        />
+
+        {/* Record Payment Modal */}
+        <PaymentFormModal
+          visible={isPayModalVisible}
+          loan={selectedLoanForPay}
+          borrowerName={selectedBorrowerForDetail?.name}
+          allPayments={allPayments}
+          onClose={() => {
+            setIsPayModalVisible(false);
+            loadActivities();
+          }}
+          onSuccess={() => loadActivities()}
+        />
+      </SafeAreaView>
+    </View>
+  );
+}
