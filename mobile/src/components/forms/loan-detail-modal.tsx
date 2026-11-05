@@ -6,7 +6,6 @@ import {
   Pressable,
   Modal,
   Linking,
-  Alert,
   StyleSheet,
   Platform,
 } from "react-native";
@@ -72,22 +71,10 @@ export function LoanDetailModal({
 }: LoanDetailModalProps) {
   if (!loan) return null;
 
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = React.useState(false);
+
   const confirmDelete = () => {
-    Alert.alert(
-      "Delete Loan Record?",
-      `Are you sure you want to delete this loan of ${formatPHP(loan.principal_minor)} for ${borrower?.name || "this borrower"}? This cannot be undone.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            onClose();
-            onDeleteLoan?.(loan);
-          },
-        },
-      ],
-    );
+    setIsDeleteConfirmOpen(true);
   };
 
   const loanPayments = payments.filter(
@@ -158,7 +145,6 @@ export function LoanDetailModal({
       animationType="slide"
       presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
       statusBarTranslucent
-      navigationBarTranslucent
       onShow={enforceImmersiveSystemBars}
       onRequestClose={onClose}
     >
@@ -219,48 +205,19 @@ export function LoanDetailModal({
               paddingHorizontal: 16,
               paddingTop: 8,
               paddingBottom: 32,
-              gap: 16,
+              gap: 12,
             }}
           >
-            {/* Unified Hero Statement Card */}
-            <View className="rounded-3xl p-5 bg-white border border-border shadow-xs gap-4 relative overflow-hidden">
-              {/* Docked Top-Right Corner Status Badge */}
-              {balance.isPaid ? (
-                <View className="absolute top-0 right-0 px-3.5 py-1.5 rounded-bl-2xl bg-emerald-100 border-b border-l border-emerald-300 flex-row items-center gap-1.5">
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={13}
-                    color="#15803D"
-                  />
-                  <Text className="text-[11px] font-black text-emerald-900 uppercase tracking-wide">
-                    Settled
-                  </Text>
-                </View>
-              ) : balance.isOverdue ? (
-                <View className="absolute top-0 right-0 px-3.5 py-1.5 rounded-bl-2xl bg-red-100 border-b border-l border-red-300 flex-row items-center gap-1.5">
-                  <Ionicons name="alert-circle" size={13} color="#B91C1C" />
-                  <Text className="text-[11px] font-black text-red-900 uppercase tracking-wide">
-                    {dueInfo.text}
-                  </Text>
-                </View>
-              ) : (
-                <View className="absolute top-0 right-0 px-3.5 py-1.5 rounded-bl-2xl bg-mint/50 border-b border-l border-border flex-row items-center gap-1.5">
-                  <Ionicons name="time-outline" size={13} color="#173D35" />
-                  <Text className="text-[11px] font-extrabold text-forest-900 uppercase tracking-wide">
-                    {dueInfo.text}
-                  </Text>
-                </View>
-              )}
-
-              {/* Zone 1: Borrower Identity + Quick Call */}
-              <View className="flex-row items-center gap-3.5 pr-28">
+            {/* 1. Borrower Identity Card */}
+            <View className="rounded-2xl p-4 bg-white border border-border shadow-xs flex-row items-center justify-between">
+              <View className="flex-row items-center gap-3 flex-1 pr-2">
                 <View
-                  className={`w-12 h-12 rounded-full items-center justify-center border shrink-0 ${
+                  className={`w-11 h-11 rounded-full items-center justify-center border shrink-0 ${
                     balance.isOverdue
                       ? "bg-red-50 border-red-200"
                       : balance.isPaid
-                        ? "bg-emerald-50 border-emerald-200"
-                        : "bg-mint/40 border-border"
+                      ? "bg-emerald-50 border-emerald-200"
+                      : "bg-mint/40 border-border"
                   }`}
                 >
                   <Text
@@ -268,265 +225,214 @@ export function LoanDetailModal({
                       balance.isOverdue
                         ? "text-danger"
                         : balance.isPaid
-                          ? "text-emerald-800"
-                          : "text-forest-900"
+                        ? "text-emerald-800"
+                        : "text-forest-900"
                     }`}
                   >
                     {getInitials(borrower?.name)}
                   </Text>
                 </View>
 
-                <View className="flex-1 overflow-hidden">
-                  <View className="flex-row items-center gap-2">
+                <View className="flex-1">
+                  <View className="flex-row items-center gap-1.5 flex-wrap">
                     <Text
                       numberOfLines={1}
-                      className="text-lg font-extrabold text-ink shrink"
+                      className="text-base font-black text-ink shrink"
                     >
                       {borrower?.name || "Unknown Borrower"}
                     </Text>
                     {tag && (
-                      <View className="px-2 py-0.5 rounded-md bg-mint/40 border border-border shrink-0">
-                        <Text className="text-[11px] font-bold text-forest-900">
+                      <View className="px-1.5 py-0.5 rounded bg-mint/40 border border-border">
+                        <Text className="text-[10px] font-bold text-forest-900">
                           {tag}
                         </Text>
                       </View>
                     )}
-                    {borrower && onEditBorrower && (
-                      <Pressable
-                        onPress={() => onEditBorrower(borrower)}
-                        hitSlop={8}
-                        className="px-2 py-0.5 rounded-full bg-mint/30 border border-border flex-row items-center gap-1 active:bg-mint/60 shrink-0"
-                        accessibilityRole="button"
-                        accessibilityLabel={`Edit ${borrower.name}`}
-                      >
-                        <Ionicons
-                          name="create-outline"
-                          size={12}
-                          color="#173D35"
-                        />
-                        <Text className="text-[10px] font-extrabold text-forest-900">
-                          Edit
-                        </Text>
-                      </Pressable>
-                    )}
                   </View>
-
-                  {borrower?.phone || borrower?.address ? (
-                    <Text
-                      numberOfLines={1}
-                      className="text-xs text-slate font-medium mt-1"
-                    >
-                      {[borrower?.phone, borrower?.address]
-                        .filter(Boolean)
-                        .join(" • ")}
-                    </Text>
-                  ) : (
-                    <Text className="text-xs text-slate font-medium mt-1">
-                      Registered debtor
-                    </Text>
-                  )}
+                  <Text
+                    numberOfLines={1}
+                    className="text-xs text-slate font-medium mt-0.5"
+                  >
+                    {[borrower?.phone, borrower?.address]
+                      .filter(Boolean)
+                      .join(" • ") || "Borrower"}
+                  </Text>
                 </View>
               </View>
 
               {borrower?.phone && (
                 <Pressable
                   onPress={handleCall}
-                  className="py-2.5 px-3.5 rounded-2xl bg-mint/25 border border-border flex-row items-center justify-between active:bg-mint/40"
+                  hitSlop={8}
+                  className="py-2 px-3 rounded-xl bg-forest-900/10 border border-forest-900/20 flex-row items-center gap-1.5 active:bg-forest-900/20 shrink-0"
+                  accessibilityLabel={`Call ${borrower.phone}`}
                 >
-                  <View className="flex-row items-center gap-2">
-                    <Ionicons name="call" size={15} color="#173D35" />
-                    <Text className="text-xs font-extrabold text-forest-900">
-                      Call {borrower.phone}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={14} color="#173D35" />
+                  <Ionicons name="call" size={13} color="#173D35" />
+                  <Text className="text-xs font-bold text-forest-900">Call</Text>
                 </Pressable>
               )}
+            </View>
 
-              {/* Zone 2: Financial Breakdown Box */}
-              <View className="rounded-2xl p-4 bg-slate-50 border border-slate-100 gap-3.5">
-                <View className="flex-row items-end justify-between gap-2">
-                  <View className="flex-1">
-                    <View className="flex-row items-center gap-2">
-                      <Text className="text-[11px] font-bold text-slate uppercase tracking-wider">
-                        {balance.isPaid ? "Total Settled" : "Remaining Balance"}
-                      </Text>
-                      <View className="px-2 py-0.5 rounded-full bg-white border border-slate-200">
-                        <Text className="text-[10px] font-extrabold text-forest-900">
-                          {formatInterestTypeLabel(
-                            loan.interest_type,
-                            loan.interest_rate,
-                          )}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text
-                      numberOfLines={1}
-                      style={{ fontVariant: ["tabular-nums"] }}
-                      className={`text-3xl font-black tracking-tight mt-0.5 ${
-                        balance.isOverdue
-                          ? "text-danger"
-                          : balance.isPaid
-                            ? "text-emerald-700"
-                            : "text-forest-900"
-                      }`}
-                    >
-                      {formatPHP(
-                        balance.isPaid
-                          ? balance.totalOwedMinor
-                          : balance.remainingBalanceMinor,
-                      )}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Progress Bar */}
-                <View className="gap-1.5">
-                  <View className="h-2.5 rounded-full bg-slate-200 overflow-hidden">
-                    <View
-                      className={`h-full rounded-full ${
-                        balance.isOverdue ? "bg-amber-500" : "bg-bai"
-                      }`}
-                      style={{ width: `${percentPaid}%` }}
+            {/* 2. Balance & Repayment Card */}
+            <View className="rounded-2xl p-4 bg-white border border-border shadow-xs gap-3">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-xs font-bold text-slate uppercase tracking-wider">
+                  {balance.isPaid ? "Total Settled" : "Remaining Balance"}
+                </Text>
+                {balance.isPaid ? (
+                  <View className="px-2.5 py-1 rounded-full bg-emerald-100 flex-row items-center gap-1">
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={12}
+                      color="#15803D"
                     />
-                  </View>
-                  <View className="flex-row justify-between items-center">
-                    <Text
-                      style={{ fontVariant: ["tabular-nums"] }}
-                      className="text-xs font-semibold text-slate"
-                    >
-                      Paid:{" "}
-                      <Text className="font-bold text-ink">
-                        {formatPHP(balance.totalPaidMinor)}
-                      </Text>
-                    </Text>
-                    <Text
-                      style={{ fontVariant: ["tabular-nums"] }}
-                      className="text-xs font-extrabold text-bai"
-                    >
-                      {percentPaid}% Repaid
+                    <Text className="text-[11px] font-bold text-emerald-900">
+                      Settled
                     </Text>
                   </View>
-                </View>
-
-                {/* 3-Column Principal / Interest / Total Strip */}
-                <View className="flex-row pt-3 border-t border-slate-200/80">
-                  <View className="flex-1">
-                    <Text className="text-[10px] font-bold text-slate uppercase tracking-wider">
-                      Principal
-                    </Text>
-                    <Text
-                      style={{ fontVariant: ["tabular-nums"] }}
-                      className="text-sm font-extrabold text-ink mt-0.5"
-                    >
-                      {formatPHP(balance.principalMinor)}
+                ) : balance.isOverdue ? (
+                  <View className="px-2.5 py-1 rounded-full bg-red-100 flex-row items-center gap-1">
+                    <Ionicons name="alert-circle" size={12} color="#B91C1C" />
+                    <Text className="text-[11px] font-bold text-red-900">
+                      {dueInfo.text}
                     </Text>
                   </View>
-                  <View className="w-px bg-slate-200 mx-2.5" />
-                  <View className="flex-1">
-                    <Text className="text-[10px] font-bold text-slate uppercase tracking-wider">
-                      Interest / Fee
-                    </Text>
-                    <Text
-                      style={{ fontVariant: ["tabular-nums"] }}
-                      className="text-sm font-extrabold text-amber-700 mt-0.5"
-                    >
-                      {formatPHP(balance.interestMinor)}
+                ) : (
+                  <View className="px-2.5 py-1 rounded-full bg-mint/50 flex-row items-center gap-1">
+                    <Ionicons name="time-outline" size={12} color="#173D35" />
+                    <Text className="text-[11px] font-bold text-forest-900">
+                      {dueInfo.text}
                     </Text>
                   </View>
-                  <View className="w-px bg-slate-200 mx-2.5" />
-                  <View className="flex-1 items-end">
-                    <Text className="text-[10px] font-bold text-slate uppercase tracking-wider">
-                      Total Due
-                    </Text>
-                    <Text
-                      style={{ fontVariant: ["tabular-nums"] }}
-                      className="text-sm font-extrabold text-forest-900 mt-0.5"
-                    >
-                      {formatPHP(balance.totalOwedMinor)}
-                    </Text>
-                  </View>
-                </View>
+                )}
               </View>
 
-              {/* Zone 3: Compact 2-Column Schedule Strip */}
-              <View className="flex-row gap-2.5">
-                <View className="flex-1 p-3 rounded-2xl bg-slate-50 border border-slate-100 flex-row items-center gap-2.5">
-                  <View className="w-8 h-8 rounded-xl bg-mint/40 items-center justify-center">
-                    <Ionicons
-                      name="calendar-outline"
-                      size={15}
-                      color="#173D35"
-                    />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-[10px] font-bold text-slate uppercase">
-                      Date Lent
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      className="text-xs font-extrabold text-ink mt-0.5"
-                    >
-                      {formatReadableDate(loan.loan_date)}
-                    </Text>
-                  </View>
-                </View>
+              <Text
+                numberOfLines={1}
+                style={{ fontVariant: ["tabular-nums"] }}
+                className={`text-3xl font-black tracking-tight ${
+                  balance.isOverdue
+                    ? "text-danger"
+                    : balance.isPaid
+                    ? "text-emerald-700"
+                    : "text-forest-900"
+                }`}
+              >
+                {formatPHP(
+                  balance.isPaid
+                    ? balance.totalOwedMinor
+                    : balance.remainingBalanceMinor,
+                )}
+              </Text>
 
-                <View
-                  className={`flex-1 p-3 rounded-2xl border flex-row items-center gap-2.5 ${
-                    dueInfo.isOverdue && !balance.isPaid
-                      ? "bg-red-50/70 border-red-200"
-                      : "bg-slate-50 border-slate-100"
-                  }`}
-                >
+              {/* Progress Bar & Stats */}
+              <View className="gap-1.5 pt-0.5">
+                <View className="h-2 rounded-full bg-slate-100 overflow-hidden">
                   <View
-                    className={`w-8 h-8 rounded-xl items-center justify-center ${
-                      dueInfo.isOverdue && !balance.isPaid
-                        ? "bg-red-100"
-                        : "bg-mint/40"
+                    className={`h-full rounded-full ${
+                      balance.isOverdue ? "bg-amber-500" : "bg-bai"
                     }`}
-                  >
-                    <Ionicons
-                      name="alarm-outline"
-                      size={15}
-                      color={
-                        dueInfo.isOverdue && !balance.isPaid
-                          ? "#B91C1C"
-                          : "#173D35"
-                      }
-                    />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-[10px] font-bold text-slate uppercase">
-                      Due Date
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      className={`text-xs font-extrabold mt-0.5 ${
-                        dueInfo.isOverdue && !balance.isPaid
-                          ? "text-danger"
-                          : "text-ink"
-                      }`}
-                    >
-                      {formatReadableDate(loan.due_date)}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {loan.notes && (
-                <View className="p-3 rounded-2xl bg-mint/20 border border-border/80 flex-row items-start gap-2">
-                  <Ionicons
-                    name="document-text-outline"
-                    size={15}
-                    color="#173D35"
-                    style={{ marginTop: 1 }}
+                    style={{ width: `${percentPaid}%` }}
                   />
-                  <Text className="flex-1 text-xs text-forest-900 font-medium leading-4">
-                    {loan.notes}
+                </View>
+                <View className="flex-row justify-between items-center">
+                  <Text
+                    style={{ fontVariant: ["tabular-nums"] }}
+                    className="text-xs font-semibold text-slate"
+                  >
+                    Paid:{" "}
+                    <Text className="font-bold text-ink">
+                      {formatPHP(balance.totalPaidMinor)}
+                    </Text>
+                  </Text>
+                  <Text
+                    style={{ fontVariant: ["tabular-nums"] }}
+                    className="text-xs font-extrabold text-bai"
+                  >
+                    {percentPaid}% Repaid
                   </Text>
                 </View>
-              )}
+              </View>
+            </View>
+
+            {/* 3. Loan Information Card */}
+            <View className="rounded-2xl p-4 bg-white border border-border shadow-xs">
+              <Text className="text-xs font-black text-forest-900 uppercase tracking-widest mb-3">
+                Loan Terms
+              </Text>
+
+              <View className="gap-2.5">
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-xs text-slate font-medium">Principal</Text>
+                  <Text
+                    style={{ fontVariant: ["tabular-nums"] }}
+                    className="text-xs font-bold text-ink"
+                  >
+                    {formatPHP(balance.principalMinor)}
+                  </Text>
+                </View>
+
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-xs text-slate font-medium">Interest</Text>
+                  <Text className="text-xs font-bold text-ink">
+                    {formatInterestTypeLabel(
+                      loan.interest_type,
+                      loan.interest_rate,
+                    )}
+                    {balance.interestMinor > 0 &&
+                      ` (+${formatPHP(balance.interestMinor)})`}
+                  </Text>
+                </View>
+
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-xs text-slate font-medium">Total Due</Text>
+                  <Text
+                    style={{ fontVariant: ["tabular-nums"] }}
+                    className="text-xs font-black text-forest-900"
+                  >
+                    {formatPHP(balance.totalOwedMinor)}
+                  </Text>
+                </View>
+
+                <View className="h-px bg-slate-100 my-1" />
+
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-xs text-slate font-medium">Date Lent</Text>
+                  <Text className="text-xs font-bold text-ink">
+                    {formatReadableDate(loan.loan_date)}
+                  </Text>
+                </View>
+
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-xs text-slate font-medium">Due Date</Text>
+                  <Text
+                    className={`text-xs font-bold ${
+                      dueInfo.isOverdue && !balance.isPaid
+                        ? "text-danger"
+                        : "text-ink"
+                    }`}
+                  >
+                    {formatReadableDate(loan.due_date)}
+                  </Text>
+                </View>
+
+                {loan.notes && (
+                  <>
+                    <View className="h-px bg-slate-100 my-1" />
+                    <View className="flex-row items-start gap-2 pt-0.5">
+                      <Ionicons
+                        name="document-text-outline"
+                        size={14}
+                        color="#66716D"
+                        style={{ marginTop: 1 }}
+                      />
+                      <Text className="flex-1 text-xs text-slate font-medium leading-4">
+                        {loan.notes}
+                      </Text>
+                    </View>
+                  </>
+                )}
+              </View>
             </View>
 
             {/* Payment History Section */}
@@ -627,11 +533,65 @@ export function LoanDetailModal({
               <View className="p-3.5 rounded-2xl bg-emerald-100 border border-emerald-300 flex-row items-center justify-center gap-2">
                 <Frog mood="celebrate" size={28} />
                 <Text className="text-emerald-900 font-extrabold text-xs">
-                  Walay Utang Nga Nabilin! (Fully Paid)
+                  Loan Fully Paid
                 </Text>
               </View>
             )}
           </View>
+
+          {/* Delete Confirmation Modal */}
+          {isDeleteConfirmOpen && (
+            <Modal
+              visible={isDeleteConfirmOpen}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setIsDeleteConfirmOpen(false)}
+            >
+              <Pressable
+                className="flex-1 bg-black/60 items-center justify-center p-5"
+                onPress={() => setIsDeleteConfirmOpen(false)}
+              >
+                <Pressable
+                  className="w-full max-w-sm rounded-3xl bg-white p-6 items-center shadow-lg border border-border/40"
+                  onPress={(e) => e.stopPropagation()}
+                >
+                  <View className="w-16 h-16 rounded-full bg-red-100 items-center justify-center mb-3">
+                    <Frog mood="thinking" size={54} />
+                  </View>
+                  <Text className="text-xl font-black text-forest-900 text-center tracking-tight">
+                    Delete Loan?
+                  </Text>
+                  <Text className="text-xs text-slate-600 text-center mt-2 leading-relaxed">
+                    Are you sure you want to delete this loan of {formatPHP(loan.principal_minor)} for {borrower?.name || "this debtor"}? This cannot be undone.
+                  </Text>
+
+                  <View className="flex-row gap-3 mt-6 w-full">
+                    <Pressable
+                      onPress={() => setIsDeleteConfirmOpen(false)}
+                      className="flex-1 py-3.5 rounded-2xl bg-forest-900/10 items-center active:bg-forest-900/20"
+                    >
+                      <Text className="text-sm font-bold text-forest-900">
+                        Cancel
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      onPress={() => {
+                        setIsDeleteConfirmOpen(false);
+                        onClose();
+                        onDeleteLoan?.(loan);
+                      }}
+                      className="flex-1 py-3.5 rounded-2xl bg-danger items-center active:bg-danger/90"
+                    >
+                      <Text className="text-sm font-extrabold text-white">
+                        Delete Loan
+                      </Text>
+                    </Pressable>
+                  </View>
+                </Pressable>
+              </Pressable>
+            </Modal>
+          )}
         </SafeAreaView>
       </View>
     </Modal>

@@ -15,7 +15,7 @@ import { borrowerHelper } from "@/db-helpers/borrowers";
 import { loanHelper } from "@/db-helpers/loans";
 import { paymentHelper } from "@/db-helpers/payments";
 import { Borrower, Loan, Payment } from "@/types/database";
-import { useLocalSearchParams, useFocusEffect } from "expo-router";
+import { useLocalSearchParams, useFocusEffect, useRouter, useNavigation } from "expo-router";
 import { formatPHP } from "@/services/interest/calculateInterest";
 import { calculateLoanBalance } from "@/services/balance/calculateBalance";
 import { getLocalDateString, parseLocalDate } from "@/services/date/dateUtils";
@@ -111,6 +111,8 @@ type DirectoryItem =
     };
 
 export default function BorrowersScreen() {
+  const navigation = useNavigation<any>();
+  const router = useRouter();
   const db = useSQLiteContext();
   const params = useLocalSearchParams<{ action?: string; t?: string }>();
 
@@ -343,20 +345,38 @@ export default function BorrowersScreen() {
             <PautangBaiLogo width={135} height={42} />
           </View>
 
-          <Pressable
-            className="flex-row items-center gap-1.5 py-2 px-3.5 rounded-full bg-bai active:opacity-90 shadow-xs"
-            onPress={() => {
-              setEditingBorrower(null);
-              setIsBorrowerModalVisible(true);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Add new borrower"
-          >
-            <Ionicons name="person-add" size={15} color="#FFFFFF" />
-            <Text className="text-white font-bold text-xs tracking-wide uppercase">
-              Add Debtor
-            </Text>
-          </Pressable>
+          <View className="flex-row items-center gap-2">
+            <Pressable
+              className="flex-row items-center gap-1.5 py-2 px-3.5 rounded-full bg-bai active:opacity-90 shadow-xs"
+              onPress={() => {
+                setEditingBorrower(null);
+                setIsBorrowerModalVisible(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Add new borrower"
+            >
+              <Ionicons name="person-add" size={15} color="#FFFFFF" />
+              <Text className="text-white font-bold text-xs tracking-wide uppercase">
+                Add Debtor
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => {
+                try {
+                  navigation.navigate("settings");
+                } catch {
+                  router.navigate("/settings");
+                }
+              }}
+              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+              className="w-10 h-10 rounded-full bg-white border border-border items-center justify-center active:opacity-75 shadow-xs"
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+            >
+              <Ionicons name="settings-outline" size={19} color="#173D35" />
+            </Pressable>
+          </View>
         </View>
 
         {/* Main List */}
@@ -425,31 +445,31 @@ export default function BorrowersScreen() {
                 </View>
               </View>
 
-              {/* Search Bar + Sort Toggle */}
-              <View className="flex-row items-center gap-2.5">
-                <View className="flex-1 flex-row items-center px-4 py-3 rounded-2xl bg-white border border-border shadow-xs">
+              {/* Search Bar + Sort Action (Matched Height, Fixed Sort Width) */}
+              <View className="flex-row items-center gap-2">
+                <View className="flex-1 h-11 flex-row items-center px-3.5 rounded-xl bg-white border border-border shadow-xs">
                   <Ionicons
                     name="search"
-                    size={18}
+                    size={17}
                     color="#66716D"
-                    className="mr-2.5"
+                    style={{ marginRight: 8 }}
                   />
                   <TextInput
                     placeholder="Search name, phone, notes..."
                     placeholderTextColor="#66716D"
                     value={searchQuery}
                     onChangeText={setSearchQuery}
-                    className="flex-1 text-sm text-ink"
+                    className="flex-1 text-sm text-ink font-medium"
                     clearButtonMode="while-editing"
                   />
                   {searchQuery.length > 0 && (
                     <Pressable onPress={() => setSearchQuery("")} hitSlop={8}>
-                      <Ionicons name="close-circle" size={18} color="#66716D" />
+                      <Ionicons name="close-circle" size={17} color="#66716D" />
                     </Pressable>
                   )}
                 </View>
 
-                {/* Sort Cycle Button */}
+                {/* Sort Button (Fixed 108px width so size never jumps on cycle) */}
                 <Pressable
                   onPress={() =>
                     setSortOrder((prev) => {
@@ -458,45 +478,101 @@ export default function BorrowersScreen() {
                       return SORT_CYCLE[nextIdx];
                     })
                   }
-                  className="px-4 py-3 rounded-2xl bg-white border border-border shadow-xs flex-row items-center gap-1.5 active:bg-slate-50 min-h-[46px]"
+                  className="h-11 w-[108px] rounded-xl bg-white border border-border shadow-xs flex-row items-center justify-center gap-1.5 active:bg-slate-50"
                   accessibilityRole="button"
                   accessibilityLabel={`Sort by ${SORT_LABELS[sortOrder]}`}
                 >
-                  <Ionicons name="swap-vertical" size={16} color="#173D35" />
-                  <Text className="text-xs font-extrabold text-forest-900">
+                  <Ionicons name="swap-vertical" size={15} color="#173D35" />
+                  <Text
+                    numberOfLines={1}
+                    className="text-xs font-extrabold text-forest-900"
+                  >
                     {SORT_LABELS[sortOrder]}
                   </Text>
                 </Pressable>
               </View>
 
-              {/* Filter Chips */}
-              <View className="flex-row gap-2">
-                {(
-                  [
-                    { key: "all", label: "All" },
-                    { key: "active", label: `Active (${activeDebtsCount})` },
-                    { key: "overdue", label: `Overdue (${overdueDebtsCount})` },
-                    { key: "paid", label: "Settled" },
-                  ] as const
-                ).map((chip) => {
+              {/* Equal-Width Filter Chips Row (Fill Full Width) */}
+              <View className="flex-row items-center gap-1.5">
+                {[
+                  {
+                    key: "all" as const,
+                    label: "All",
+                    count: loansData.length,
+                    isAlert: false,
+                  },
+                  {
+                    key: "active" as const,
+                    label: "Active",
+                    count: activeDebtsCount,
+                    isAlert: false,
+                  },
+                  {
+                    key: "overdue" as const,
+                    label: "Overdue",
+                    count: overdueDebtsCount,
+                    isAlert: overdueDebtsCount > 0,
+                  },
+                  {
+                    key: "paid" as const,
+                    label: "Settled",
+                    count: null,
+                    isAlert: false,
+                  },
+                ].map((chip) => {
                   const isSelected = filterStatus === chip.key;
                   return (
                     <Pressable
                       key={chip.key}
                       onPress={() => setFilterStatus(chip.key)}
-                      className={`py-2 px-4 rounded-full border ${
+                      style={[
+                        styles.filterChip,
                         isSelected
-                          ? "bg-forest-900 border-forest-900"
-                          : "bg-white/90 border-border active:bg-white"
-                      }`}
+                          ? styles.chipSelected
+                          : chip.isAlert
+                            ? styles.chipAlert
+                            : styles.chipDefault,
+                      ]}
                     >
                       <Text
-                        className={`text-xs font-bold ${
-                          isSelected ? "text-white" : "text-forest-900"
-                        }`}
+                        numberOfLines={1}
+                        style={[
+                          styles.chipText,
+                          isSelected
+                            ? styles.chipTextSelected
+                            : chip.isAlert
+                              ? styles.chipTextAlert
+                              : styles.chipTextDefault,
+                        ]}
                       >
                         {chip.label}
                       </Text>
+
+                      {chip.count !== null && chip.count > 0 && (
+                        <View
+                          style={[
+                            styles.badge,
+                            isSelected
+                              ? styles.badgeSelected
+                              : chip.isAlert
+                                ? styles.badgeAlert
+                                : styles.badgeDefault,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.badgeText,
+                              isSelected
+                                ? styles.badgeTextSelected
+                                : chip.isAlert
+                                  ? styles.badgeTextAlert
+                                  : styles.badgeTextDefault,
+                            ]}
+                          >
+                            {chip.count}
+                          </Text>
+                        </View>
+                      )}
                     </Pressable>
                   );
                 })}
@@ -566,13 +642,9 @@ export default function BorrowersScreen() {
               ].filter(Boolean);
 
               return (
-                <Pressable
+                <View
                   key={item.id}
-                  className="rounded-3xl p-5 bg-white border border-border shadow-xs active:bg-slate-50 gap-4 relative overflow-hidden"
-                  onPress={() => {
-                    setSelectedBorrowerForLoan(item.borrower);
-                    setIsLoanModalVisible(true);
-                  }}
+                  className="rounded-3xl p-5 bg-white border border-border shadow-xs gap-4 relative overflow-hidden"
                 >
                   {/* Docked Top-Right Corner Status Badge */}
                   <View className="absolute top-0 right-0 px-3.5 py-1.5 rounded-bl-2xl bg-mint/40 border-b border-l border-border flex-row items-center gap-1.5">
@@ -621,8 +693,7 @@ export default function BorrowersScreen() {
                   <View className="flex-row items-center gap-2.5">
                     <Pressable
                       className="w-11 h-11 rounded-2xl border border-border bg-mint/20 items-center justify-center active:bg-mint/40 shrink-0"
-                      onPress={(e) => {
-                        e.stopPropagation();
+                      onPress={() => {
                         setEditingBorrower(item.borrower);
                         setIsBorrowerModalVisible(true);
                       }}
@@ -638,8 +709,7 @@ export default function BorrowersScreen() {
 
                     <Pressable
                       className="flex-1 py-3 px-4 rounded-2xl bg-forest-900 flex-row items-center justify-center gap-2 active:opacity-90"
-                      onPress={(e) => {
-                        e.stopPropagation();
+                      onPress={() => {
                         setSelectedBorrowerForLoan(item.borrower);
                         setIsLoanModalVisible(true);
                       }}
@@ -654,7 +724,7 @@ export default function BorrowersScreen() {
                       </Text>
                     </Pressable>
                   </View>
-                </Pressable>
+                </View>
               );
             }
 
@@ -677,10 +747,9 @@ export default function BorrowersScreen() {
             const tag = tagMatch ? tagMatch[1] : null;
 
             return (
-              <Pressable
+              <View
                 key={loan.id}
-                className="rounded-3xl p-5 bg-white border border-border shadow-xs active:bg-slate-50 gap-4 relative overflow-hidden"
-                onPress={() => handleOpenDetail(loan)}
+                className="rounded-3xl p-5 bg-white border border-border shadow-xs gap-4 relative overflow-hidden"
               >
                 {/* Docked Top-Right Corner Status Badge */}
                 {balance.isPaid ? (
@@ -713,13 +782,19 @@ export default function BorrowersScreen() {
                 {/* Zone 1: Borrower Identity */}
                 <View className="flex-row items-center gap-3.5 pr-28">
                   <View
-                    className={`w-12 h-12 rounded-full items-center justify-center border shrink-0 ${
-                      balance.isOverdue
-                        ? "bg-red-50 border-red-200"
+                    className="w-12 h-12 rounded-full items-center justify-center border shrink-0"
+                    style={{
+                      backgroundColor: balance.isOverdue
+                        ? "#FEF2F2"
                         : balance.isPaid
-                          ? "bg-emerald-50 border-emerald-200"
-                          : "bg-mint/40 border-border"
-                    }`}
+                          ? "#ECFDF5"
+                          : "rgba(205, 245, 216, 0.4)",
+                      borderColor: balance.isOverdue
+                        ? "#FECACA"
+                        : balance.isPaid
+                          ? "#A7F3D0"
+                          : "#D4E8DC",
+                    }}
                   >
                     <Text
                       className={`text-base font-black ${
@@ -838,8 +913,7 @@ export default function BorrowersScreen() {
                   {borrower && (
                     <Pressable
                       className="w-11 h-11 rounded-2xl border border-border bg-mint/20 items-center justify-center active:bg-mint/40 shrink-0"
-                      onPress={(e) => {
-                        e.stopPropagation();
+                      onPress={() => {
                         setEditingBorrower(borrower);
                         setIsBorrowerModalVisible(true);
                       }}
@@ -866,8 +940,7 @@ export default function BorrowersScreen() {
                   {!balance.isPaid && (
                     <Pressable
                       className="flex-1 py-3 rounded-2xl bg-bai flex-row items-center justify-center gap-1.5 active:opacity-90"
-                      onPress={(e) => {
-                        e.stopPropagation();
+                      onPress={() => {
                         handleOpenPay(loan);
                       }}
                     >
@@ -878,85 +951,160 @@ export default function BorrowersScreen() {
                     </Pressable>
                   )}
                 </View>
-              </Pressable>
+              </View>
             );
           }}
         />
 
         {/* Add / Edit Borrower Modal */}
-        <BorrowerFormModal
-          visible={isBorrowerModalVisible}
-          editingBorrower={editingBorrower}
-          onClose={() => {
-            setIsBorrowerModalVisible(false);
-            setEditingBorrower(null);
-            loadData();
-          }}
-          onSuccess={() => loadData()}
-          onDelete={() => loadData()}
-        />
+        {isBorrowerModalVisible && (
+          <BorrowerFormModal
+            visible={isBorrowerModalVisible}
+            editingBorrower={editingBorrower}
+            onClose={() => {
+              setIsBorrowerModalVisible(false);
+              setEditingBorrower(null);
+              loadData();
+            }}
+            onSuccess={() => loadData()}
+            onDelete={() => loadData()}
+          />
+        )}
 
         {/* Create Loan Modal */}
-        <LoanFormModal
-          visible={isLoanModalVisible}
-          borrowers={borrowers}
-          initialBorrowerId={selectedBorrowerForLoan?.id}
-          onClose={() => {
-            setIsLoanModalVisible(false);
-            setSelectedBorrowerForLoan(null);
-            loadData();
-          }}
-          onSuccess={() => loadData()}
-          onAddBorrowerPress={() => {
-            setIsLoanModalVisible(false);
-            setEditingBorrower(null);
-            setIsBorrowerModalVisible(true);
-          }}
-        />
+        {isLoanModalVisible && (
+          <LoanFormModal
+            visible={isLoanModalVisible}
+            borrowers={borrowers}
+            initialBorrowerId={selectedBorrowerForLoan?.id}
+            onClose={() => {
+              setIsLoanModalVisible(false);
+              setSelectedBorrowerForLoan(null);
+              loadData();
+            }}
+            onSuccess={() => loadData()}
+            onAddBorrowerPress={() => {
+              setIsLoanModalVisible(false);
+              setEditingBorrower(null);
+              setIsBorrowerModalVisible(true);
+            }}
+          />
+        )}
 
         {/* Loan Detail Modal */}
-        <LoanDetailModal
-          visible={isDetailModalVisible}
-          onClose={() => {
-            setIsDetailModalVisible(false);
-            loadData();
-          }}
-          loan={selectedLoanForDetail}
-          borrower={
-            selectedLoanForDetail
-              ? borrowerMap.get(selectedLoanForDetail.borrower_id) || null
-              : null
-          }
-          payments={payments}
-          onRecordPayment={(loan) => {
-            setSelectedLoanForPay(loan);
-            setIsPayModalVisible(true);
-          }}
-          onDeleteLoan={handleDeleteLoan}
-          onEditBorrower={(borrower) => {
-            setIsDetailModalVisible(false);
-            setEditingBorrower(borrower);
-            setIsBorrowerModalVisible(true);
-          }}
-        />
+        {isDetailModalVisible && (
+          <LoanDetailModal
+            visible={isDetailModalVisible}
+            onClose={() => {
+              setIsDetailModalVisible(false);
+              loadData();
+            }}
+            loan={selectedLoanForDetail}
+            borrower={
+              selectedLoanForDetail
+                ? borrowerMap.get(selectedLoanForDetail.borrower_id) || null
+                : null
+            }
+            payments={payments}
+            onRecordPayment={(loan) => {
+              setSelectedLoanForPay(loan);
+              setIsPayModalVisible(true);
+            }}
+            onDeleteLoan={handleDeleteLoan}
+            onEditBorrower={(borrower) => {
+              setIsDetailModalVisible(false);
+              setEditingBorrower(borrower);
+              setIsBorrowerModalVisible(true);
+            }}
+          />
+        )}
 
         {/* Payment Form Modal */}
-        <PaymentFormModal
-          visible={isPayModalVisible}
-          loan={selectedLoanForPay}
-          borrowerName={
-            selectedLoanForPay
-              ? borrowerMap.get(selectedLoanForPay.borrower_id)?.name
-              : undefined
-          }
-          allPayments={payments}
-          onClose={() => {
-            setIsPayModalVisible(false);
-            loadData();
-          }}
-          onSuccess={() => loadData()}
-        />
+        {isPayModalVisible && (
+          <PaymentFormModal
+            visible={isPayModalVisible}
+            loan={selectedLoanForPay}
+            borrowerName={
+              selectedLoanForPay
+                ? borrowerMap.get(selectedLoanForPay.borrower_id)?.name
+                : undefined
+            }
+            allPayments={payments}
+            onClose={() => {
+              setIsPayModalVisible(false);
+              loadData();
+            }}
+            onSuccess={() => loadData()}
+          />
+        )}
       </SafeAreaView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  filterChip: {
+    flex: 1,
+    height: 40,
+    paddingHorizontal: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  chipSelected: {
+    backgroundColor: "#173D35",
+    borderColor: "#173D35",
+  },
+  chipAlert: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FECACA",
+  },
+  chipDefault: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#A6D9B6",
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  chipTextSelected: {
+    color: "#FFFFFF",
+  },
+  chipTextAlert: {
+    color: "#B91C1C",
+  },
+  chipTextDefault: {
+    color: "#173D35",
+  },
+  badge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 9999,
+  },
+  badgeSelected: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
+  badgeAlert: {
+    backgroundColor: "rgba(254, 202, 202, 0.8)",
+  },
+  badgeDefault: {
+    backgroundColor: "rgba(168, 220, 197, 0.4)",
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "900",
+    fontVariant: ["tabular-nums"],
+  },
+  badgeTextSelected: {
+    color: "#FFFFFF",
+  },
+  badgeTextAlert: {
+    color: "#991B1B",
+  },
+  badgeTextDefault: {
+    color: "#173D35",
+  },
+});

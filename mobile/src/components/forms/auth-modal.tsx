@@ -144,14 +144,27 @@ export function AuthModal({ visible, onClose, onSuccess }: AuthModalProps) {
                   setMode("login");
                   setErrorMessage(null);
                 }}
-                className={`flex-1 py-2.5 rounded-lg items-center justify-center min-h-[44px] ${
-                  mode === "login" ? "bg-white shadow-xs" : ""
-                }`}
+                style={[
+                  {
+                    flex: 1,
+                    paddingVertical: 10,
+                    borderRadius: 8,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: 44,
+                  },
+                  mode === "login" && {
+                    backgroundColor: "#FFFFFF",
+                    elevation: 1,
+                  },
+                ]}
               >
                 <Text
-                  className={`text-sm font-bold ${
-                    mode === "login" ? "text-forest-900" : "text-slate"
-                  }`}
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "700",
+                    color: mode === "login" ? "#173D35" : "#66716D",
+                  }}
                 >
                   Log In
                 </Text>
@@ -162,14 +175,27 @@ export function AuthModal({ visible, onClose, onSuccess }: AuthModalProps) {
                   setMode("register");
                   setErrorMessage(null);
                 }}
-                className={`flex-1 py-2.5 rounded-lg items-center justify-center min-h-[44px] ${
-                  mode === "register" ? "bg-white shadow-xs" : ""
-                }`}
+                style={[
+                  {
+                    flex: 1,
+                    paddingVertical: 10,
+                    borderRadius: 8,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: 44,
+                  },
+                  mode === "register" && {
+                    backgroundColor: "#FFFFFF",
+                    elevation: 1,
+                  },
+                ]}
               >
                 <Text
-                  className={`text-sm font-bold ${
-                    mode === "register" ? "text-forest-900" : "text-slate"
-                  }`}
+                  style={{
+                    fontSize: 14,
+                    fontWeight: "700",
+                    color: mode === "register" ? "#173D35" : "#66716D",
+                  }}
                 >
                   Create Account
                 </Text>
@@ -271,11 +297,8 @@ export function AuthModal({ visible, onClose, onSuccess }: AuthModalProps) {
             <Pressable
               onPress={handleSubmit}
               disabled={isSubmitting}
-              className={`min-h-[48px] rounded-xl items-center justify-center shadow-sm flex-row gap-2 ${
-                isSubmitting
-                  ? "bg-forest-900/70"
-                  : "bg-forest-900 active:bg-forest-900/90"
-              }`}
+              className="min-h-[48px] rounded-xl items-center justify-center shadow-sm flex-row gap-2 bg-forest-900"
+              style={{ opacity: isSubmitting ? 0.7 : 1 }}
             >
               {isSubmitting ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />

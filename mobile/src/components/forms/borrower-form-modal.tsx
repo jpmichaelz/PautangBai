@@ -5,11 +5,11 @@ import {
   TextInput,
   Pressable,
   Modal,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Keyboard,
+  StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSQLiteContext } from "expo-sqlite";
@@ -19,7 +19,7 @@ import { loanHelper } from "@/db-helpers/loans";
 import { paymentHelper } from "@/db-helpers/payments";
 import { calculateLoanBalance } from "@/services/balance/calculateBalance";
 import { Borrower } from "@/types/database";
-import { Frog } from "@/components/frog";
+import { Frog, FrogMood } from "@/components/frog";
 import { FeedbackModal } from "@/components/feedback-modal";
 import { generateUUID } from "@/services/uuid";
 import { enforceImmersiveSystemBars } from "@/utils/system-bars";
@@ -61,11 +61,15 @@ export function BorrowerFormModal({
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [showMoreDetails, setShowMoreDetails] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showValidation, setShowValidation] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [feedback, setFeedback] = useState<{
     visible: boolean;
     type: "success" | "error";
+    mood?: FrogMood;
     title: string;
     message: string;
+    buttonText?: string;
     savedBorrower?: Borrower;
   } | null>(null);
 
@@ -76,6 +80,8 @@ export function BorrowerFormModal({
     setNotes("");
     setSelectedTag(null);
     setShowMoreDetails(false);
+    setShowValidation(false);
+    setIsDeleteConfirmOpen(false);
     setIsSubmitting(false);
   };
 
@@ -99,9 +105,7 @@ export function BorrowerFormModal({
       } else {
         setSelectedTag(null);
         setNotes(rawNotes);
-        setShowMoreDetails(
-          Boolean(editingBorrower.address || rawNotes.trim()),
-        );
+        setShowMoreDetails(Boolean(editingBorrower.address || rawNotes.trim()));
       }
     } else {
       resetForm();
@@ -132,11 +136,33 @@ export function BorrowerFormModal({
     if (isSubmitting) return;
 
     if (!name.trim()) {
-      Alert.alert(
-        "Kinahanglan og Ngalan",
-        "Palihug ibutang ang kompletong ngalan sa mangungutang.",
-      );
+      setShowValidation(true);
+      setFeedback({
+        visible: true,
+        type: "error",
+        mood: "thinking",
+        title: "Kinahanglan og Ngalan",
+        message: "Palihug ibutang ang kompletong ngalan sa mangungutang una kini i-save.",
+        buttonText: "Ibutang ang Ngalan",
+      });
       return;
+    }
+
+    const trimmedPhone = phone.trim();
+    if (trimmedPhone) {
+      const digitsOnly = trimmedPhone.replace(/[^0-9]/g, "");
+      if (digitsOnly.length < 10 || digitsOnly.length > 12) {
+        setShowValidation(true);
+        setFeedback({
+          visible: true,
+          type: "error",
+          mood: "thinking",
+          title: "Sayop ang Phone Number",
+          message: "Palihug ibutang ang insaktong 11-digit mobile number (pananglitan: 09171234567 o +639171234567).",
+          buttonText: "Tarunga ang Numero",
+        });
+        return;
+      }
     }
 
     Keyboard.dismiss();
@@ -165,8 +191,10 @@ export function BorrowerFormModal({
         setFeedback({
           visible: true,
           type: "success",
+          mood: "celebrate",
           title: "Borrower Updated!",
           message: `${updatedBorrower.name}'s profile has been updated.`,
+          buttonText: "Human na (Done)",
           savedBorrower: updatedBorrower,
         });
       } else {
@@ -185,8 +213,10 @@ export function BorrowerFormModal({
         setFeedback({
           visible: true,
           type: "success",
+          mood: "celebrate",
           title: "Borrower Added!",
           message: `${savedBorrower.name} has been added to your borrower directory.`,
+          buttonText: "Human na (Done)",
           savedBorrower,
         });
       }
@@ -195,8 +225,10 @@ export function BorrowerFormModal({
       setFeedback({
         visible: true,
         type: "error",
+        mood: "thinking",
         title: "Failed to Save",
         message: "Unable to save borrower right now. Please try again.",
+        buttonText: "Suwayi Pag-usab",
       });
     } finally {
       setIsSubmitting(false);
@@ -225,44 +257,18 @@ export function BorrowerFormModal({
       }
 
       if (activeUnpaidCount > 0) {
-        Alert.alert(
-          "Cannot Delete Borrower",
-          `${editingBorrower.name} still has ${activeUnpaidCount} unpaid ${
-            activeUnpaidCount === 1 ? "loan" : "loans"
-          }. Please settle or delete active loans first before removing this borrower.`,
-        );
+        setFeedback({
+          visible: true,
+          type: "error",
+          mood: "thinking",
+          title: "Dili Pwede Papason",
+          message: `${editingBorrower.name} aduna pay ${activeUnpaidCount} nabilin nga utang. Palihug impasa una ang utang una papasa kining mangungutang.`,
+          buttonText: "Nakasabot Ko",
+        });
         return;
       }
 
-      Alert.alert(
-        "Delete Borrower?",
-        `Are you sure you want to remove ${editingBorrower.name} from your directory?`,
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Delete",
-            style: "destructive",
-            onPress: async () => {
-              setIsSubmitting(true);
-              try {
-                await borrowerHelper.softDelete(db, editingBorrower.id);
-                const deleted = editingBorrower;
-                resetForm();
-                onClose();
-                onDelete?.(deleted);
-              } catch (err) {
-                console.error("Failed to delete borrower:", err);
-                Alert.alert(
-                  "Delete Failed",
-                  "Unable to delete borrower right now. Please try again.",
-                );
-              } finally {
-                setIsSubmitting(false);
-              }
-            },
-          },
-        ],
-      );
+      setIsDeleteConfirmOpen(true);
     } catch (err) {
       console.error("Error checking borrower loans before delete:", err);
     }
@@ -274,7 +280,6 @@ export function BorrowerFormModal({
       animationType="slide"
       presentationStyle={Platform.OS === "ios" ? "pageSheet" : "fullScreen"}
       statusBarTranslucent
-      navigationBarTranslucent
       onShow={enforceImmersiveSystemBars}
       onRequestClose={handleClose}
     >
@@ -322,13 +327,22 @@ export function BorrowerFormModal({
               <Text className="text-xs font-bold text-ink uppercase tracking-wider mb-2">
                 Full Name <Text className="text-rose-600">*</Text>
               </Text>
-              <View className="flex-row items-center rounded-xl border border-border bg-white px-3.5 shadow-xs">
+              <View
+                className={`flex-row items-center rounded-xl border bg-white px-3.5 shadow-xs mb-1 ${
+                  showValidation && !name.trim()
+                    ? "border-danger bg-red-50/20"
+                    : "border-border"
+                }`}
+              >
                 <Ionicons name="person-outline" size={18} color="#287A63" />
                 <TextInput
                   placeholder="e.g. Maria Santos"
                   placeholderTextColor="#9CA3AF"
                   value={name}
-                  onChangeText={setName}
+                  onChangeText={(text) => {
+                    setName(text);
+                    if (showValidation) setShowValidation(false);
+                  }}
                   className="flex-1 px-2.5 py-3 text-base text-ink"
                   autoFocus={!isEditing}
                 />
@@ -338,6 +352,11 @@ export function BorrowerFormModal({
                   </Pressable>
                 )}
               </View>
+              {showValidation && !name.trim() && (
+                <Text className="text-xs font-semibold text-danger mt-1 ml-1">
+                  * Palihug ibutang ang kompletong ngalan
+                </Text>
+              )}
             </View>
 
             {/* Phone Number */}
@@ -353,13 +372,22 @@ export function BorrowerFormModal({
               <View className="flex-row items-center rounded-xl border border-border bg-white px-3.5 shadow-xs">
                 <Ionicons name="call-outline" size={18} color="#287A63" />
                 <TextInput
-                  placeholder="e.g. 0917 123 4567 (optional)"
+                  placeholder="e.g. 09171234567 (optional)"
                   placeholderTextColor="#9CA3AF"
                   value={phone}
-                  onChangeText={setPhone}
+                  onChangeText={(text) => {
+                    const cleaned = text.replace(/[^0-9+]/g, "").slice(0, 13);
+                    setPhone(cleaned);
+                  }}
+                  maxLength={13}
                   keyboardType="phone-pad"
                   className="flex-1 px-2.5 py-3 text-base text-ink"
                 />
+                {phone.length > 0 && (
+                  <Pressable onPress={() => setPhone("")} hitSlop={8}>
+                    <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+                  </Pressable>
+                )}
               </View>
             </View>
 
@@ -380,12 +408,12 @@ export function BorrowerFormModal({
                     <Pressable
                       key={label}
                       onPress={() => toggleTag(label)}
-                      style={{ width: "31.5%" }}
-                      className={`py-2.5 px-2 rounded-xl border flex-row items-center justify-center gap-1.5 ${
+                      style={[
+                        styles.tagButton,
                         isSelected
-                          ? "bg-forest-900 border-forest-900 shadow-xs"
-                          : "bg-white border-border active:bg-mint/30"
-                      }`}
+                          ? styles.tagButtonSelected
+                          : styles.tagButtonUnselected,
+                      ]}
                     >
                       <Ionicons
                         name={isSelected ? "checkmark-circle" : icon}
@@ -394,9 +422,12 @@ export function BorrowerFormModal({
                       />
                       <Text
                         numberOfLines={1}
-                        className={`text-xs font-extrabold ${
-                          isSelected ? "text-white" : "text-forest-900"
-                        }`}
+                        style={[
+                          styles.tagText,
+                          isSelected
+                            ? styles.tagTextSelected
+                            : styles.tagTextUnselected,
+                        ]}
                       >
                         {label}
                       </Text>
@@ -478,9 +509,8 @@ export function BorrowerFormModal({
             {/* Primary Save Button */}
             <Pressable
               disabled={isSubmitting}
-              className={`flex-row items-center justify-center gap-2 py-4 rounded-xl shadow-sm ${
-                isSubmitting ? "bg-forest/60" : "bg-forest active:opacity-90"
-              }`}
+              className="flex-row items-center justify-center gap-2 py-4 rounded-xl shadow-sm bg-forest"
+              style={{ opacity: isSubmitting ? 0.6 : 1 }}
               onPress={handleSave}
             >
               <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
@@ -510,14 +540,97 @@ export function BorrowerFormModal({
             )}
           </ScrollView>
 
+          {/* Delete Confirmation Modal */}
+          {isDeleteConfirmOpen && editingBorrower && (
+            <Modal
+              visible={isDeleteConfirmOpen}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setIsDeleteConfirmOpen(false)}
+            >
+              <Pressable
+                className="flex-1 bg-black/60 items-center justify-center p-5"
+                onPress={() => setIsDeleteConfirmOpen(false)}
+              >
+                <Pressable
+                  className="w-full max-w-sm rounded-3xl bg-white p-6 items-center shadow-lg border border-border/40"
+                  onPress={(e) => e.stopPropagation()}
+                >
+                  <View className="w-16 h-16 rounded-full bg-red-100 items-center justify-center mb-3">
+                    <Frog mood="thinking" size={54} />
+                  </View>
+                  <Text className="text-xl font-black text-forest-900 text-center tracking-tight">
+                    Papason si {editingBorrower.name}?
+                  </Text>
+                  <Text className="text-xs text-slate-600 text-center mt-2 leading-relaxed">
+                    Sigurado ka nga gusto nimo tangtangon kining mangungutang sa imong listahan?
+                  </Text>
+
+                  <View className="flex-row gap-3 mt-6 w-full">
+                    <Pressable
+                      onPress={() => setIsDeleteConfirmOpen(false)}
+                      className="flex-1 py-3.5 rounded-2xl bg-forest-900/10 items-center active:bg-forest-900/20"
+                    >
+                      <Text className="text-sm font-bold text-forest-900">
+                        Kanselahon
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      disabled={isSubmitting}
+                      onPress={async () => {
+                        setIsDeleteConfirmOpen(false);
+                        setIsSubmitting(true);
+                        try {
+                          await borrowerHelper.softDelete(
+                            db,
+                            editingBorrower.id,
+                          );
+                          const deleted = editingBorrower;
+                          resetForm();
+                          onClose();
+                          onDelete?.(deleted);
+                        } catch (err) {
+                          console.error("Failed to delete borrower:", err);
+                          setFeedback({
+                            visible: true,
+                            type: "error",
+                            mood: "thinking",
+                            title: "Delete Failed",
+                            message:
+                              "Adunay problema sa pagpapas. Palihug suwayi pag-usab.",
+                            buttonText: "Suwayi Pag-usab",
+                          });
+                        } finally {
+                          setIsSubmitting(false);
+                        }
+                      }}
+                      className="flex-1 py-3.5 rounded-2xl bg-danger items-center active:bg-danger/90"
+                    >
+                      <Text className="text-sm font-extrabold text-white">
+                        Oo, Papasa
+                      </Text>
+                    </Pressable>
+                  </View>
+                </Pressable>
+              </Pressable>
+            </Modal>
+          )}
+
           {feedback && (
             <FeedbackModal
               visible={feedback.visible}
               type={feedback.type}
-              mood={feedback.type === "success" ? "celebrate" : "thinking"}
+              mood={
+                feedback.mood ||
+                (feedback.type === "success" ? "celebrate" : "thinking")
+              }
               title={feedback.title}
               message={feedback.message}
-              buttonText={feedback.type === "success" ? "Done" : "Try Again"}
+              buttonText={
+                feedback.buttonText ||
+                (feedback.type === "success" ? "Done" : "Try Again")
+              }
               onClose={handleFeedbackClose}
             />
           )}
@@ -526,3 +639,35 @@ export function BorrowerFormModal({
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  tagButton: {
+    width: "31.5%",
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  tagButtonSelected: {
+    backgroundColor: "#173D35",
+    borderColor: "#173D35",
+  },
+  tagButtonUnselected: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#A6D9B6",
+  },
+  tagText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  tagTextSelected: {
+    color: "#FFFFFF",
+  },
+  tagTextUnselected: {
+    color: "#173D35",
+  },
+});

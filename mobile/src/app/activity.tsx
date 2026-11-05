@@ -20,7 +20,7 @@ import { parseLocalDate } from "@/services/date/dateUtils";
 import { Frog } from "@/components/frog";
 import { LoanDetailModal, PaymentFormModal } from "@/components/forms";
 import { enforceImmersiveSystemBars } from "@/utils/system-bars";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter, useNavigation } from "expo-router";
 import DashboardBg from "@/assets/images/DASHBOARD_BG.svg";
 import PautangBaiLogo from "@/assets/images/PAUTANGBAI_LOGO.svg";
 
@@ -87,6 +87,8 @@ interface ActivityItem {
 }
 
 export default function ActivityScreen() {
+  const navigation = useNavigation<any>();
+  const router = useRouter();
   const db = useSQLiteContext();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [allPayments, setAllPayments] = useState<Payment[]>([]);
@@ -255,11 +257,29 @@ export default function ActivityScreen() {
             <PautangBaiLogo width={135} height={42} />
           </View>
 
-          <View className="flex-row items-center px-2.5 py-1 rounded-full bg-emerald-100 gap-1.5">
-            <Ionicons name="receipt-outline" size={14} color="#065F46" />
-            <Text className="text-xs font-bold text-emerald-800">
-              {activities.length} Records
-            </Text>
+          <View className="flex-row items-center gap-2">
+            <Pressable
+              onPress={() => {
+                try {
+                  navigation.navigate("settings");
+                } catch {
+                  router.navigate("/settings");
+                }
+              }}
+              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+              className="w-10 h-10 rounded-full bg-white border border-border items-center justify-center active:opacity-75 shadow-xs"
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+            >
+              <Ionicons name="settings-outline" size={19} color="#173D35" />
+            </Pressable>
+
+            <View className="flex-row items-center px-2.5 py-1 rounded-full bg-emerald-100 gap-1.5">
+              <Ionicons name="receipt-outline" size={14} color="#065F46" />
+              <Text className="text-xs font-bold text-emerald-800">
+                {activities.length} Records
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -335,16 +355,21 @@ export default function ActivityScreen() {
                     <Pressable
                       key={chip.key}
                       onPress={() => setFilterType(chip.key)}
-                      className={`py-2 px-4 rounded-full border ${
-                        isSelected
-                          ? "bg-forest-900 border-forest-900"
-                          : "bg-white/90 border-border active:bg-white"
-                      }`}
+                      style={{
+                        paddingVertical: 8,
+                        paddingHorizontal: 16,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        backgroundColor: isSelected ? "#173D35" : "rgba(255, 255, 255, 0.9)",
+                        borderColor: isSelected ? "#173D35" : "#D4E8DC",
+                      }}
                     >
                       <Text
-                        className={`text-xs font-bold ${
-                          isSelected ? "text-white" : "text-forest-900"
-                        }`}
+                        style={{
+                          fontSize: 12,
+                          fontWeight: "700",
+                          color: isSelected ? "#FFFFFF" : "#173D35",
+                        }}
                       >
                         {chip.label}
                       </Text>
@@ -456,7 +481,6 @@ export default function ActivityScreen() {
           visible={!!selectedActivity}
           transparent
           statusBarTranslucent
-          navigationBarTranslucent
           onShow={enforceImmersiveSystemBars}
           animationType="fade"
           onRequestClose={() => setSelectedActivity(null)}
@@ -467,7 +491,7 @@ export default function ActivityScreen() {
           >
             <Pressable
               className="bg-white rounded-t-3xl pt-3 px-5 pb-8 border-t border-border relative overflow-hidden"
-              onPress={(e) => e.stopPropagation()}
+              onPress={() => {}}
             >
               {/* Drag Handle */}
               <View className="w-10 h-1 rounded-full bg-slate-200 self-center mb-4" />

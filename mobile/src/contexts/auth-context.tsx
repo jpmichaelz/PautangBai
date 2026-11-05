@@ -49,8 +49,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(freshUser);
             setIsGuest(false);
           }
-        } else if (guest) {
+        } else {
+          // Offline-first standalone mode default for fresh installs
           setIsGuest(true);
+          await tokenStorage.setGuestMode(true);
         }
       } catch (err) {
         console.warn("Auth initialization error:", err);

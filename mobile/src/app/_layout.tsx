@@ -32,6 +32,8 @@ import RegisterScreen from "./register";
 LogBox.ignoreLogs([
   "ImageBackground is deprecated",
   "setLayoutAnimationEnabledExperimental",
+  "CssInterop upgrade warning",
+  "Components need to set a variable during the initial render",
 ]);
 
 const originalWarn = console.warn;
@@ -39,7 +41,9 @@ console.warn = (...args: unknown[]) => {
   if (
     typeof args[0] === "string" &&
     (args[0].includes("ImageBackground is deprecated") ||
-      args[0].includes("setLayoutAnimationEnabledExperimental"))
+      args[0].includes("setLayoutAnimationEnabledExperimental") ||
+      args[0].includes("CssInterop upgrade warning") ||
+      args[0].includes("Components need to set a variable"))
   ) {
     return;
   }

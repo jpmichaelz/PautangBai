@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from "react";
 // layout-critical positioning uses style props: className is not applied to Svg and absolute/zIndex are unreliable via NativeWind here
-import { View, Text, Pressable, Dimensions, Alert } from "react-native";
+import { View, Text, Pressable, Dimensions } from "react-native";
 import { Tabs, useRouter } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSQLiteContext } from "expo-sqlite";
 import Svg, { Path } from "react-native-svg";
 import { getLocalDateString } from "@/services/date/dateUtils";
+import { FeedbackModal } from "@/components/feedback-modal";
 
 type BottomTabBarProps = Parameters<
   NonNullable<React.ComponentProps<typeof Tabs>["tabBar"]>
 >[0];
 
-type TabRouteName = "index" | "borrowers" | "activity" | "settings";
+type TabRouteName = "index" | "borrowers" | "analytics" | "activity";
 
 interface TabMeta {
   label: string;
@@ -30,15 +31,15 @@ const TAB_CONFIG: Record<TabRouteName, TabMeta> = {
     activeIcon: "people",
     inactiveIcon: "people-outline",
   },
+  analytics: {
+    label: "Analytics",
+    activeIcon: "pie-chart",
+    inactiveIcon: "pie-chart-outline",
+  },
   activity: {
     label: "Activity",
     activeIcon: "receipt",
     inactiveIcon: "receipt-outline",
-  },
-  settings: {
-    label: "Settings",
-    activeIcon: "settings",
-    inactiveIcon: "settings-outline",
   },
 };
 
@@ -54,6 +55,7 @@ function ImpeccableFloatingScoopedTabBar({
   const [overdueCount, setOverdueCount] = useState(0);
   const [borrowerCount, setBorrowerCount] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isNoBorrowersModalOpen, setIsNoBorrowersModalOpen] = useState(false);
   const [screenWidth, setScreenWidth] = useState(
     Dimensions.get("window").width,
   );
@@ -125,22 +127,7 @@ function ImpeccableFloatingScoopedTabBar({
     setIsMenuOpen(false);
     if (type === "new_loan") {
       if (borrowerCount === 0) {
-        Alert.alert(
-          "Walay Mangungutang",
-          "Kinahanglan magdugang una og mangungutang usa makahimo og pautang.",
-          [
-            { text: "Kanselahon", style: "cancel" },
-            {
-              text: "Dugang Mangungutang",
-              onPress: () => {
-                router.push({
-                  pathname: "/borrowers",
-                  params: { action: "new_borrower", t: String(Date.now()) },
-                });
-              },
-            },
-          ],
-        );
+        setIsNoBorrowersModalOpen(true);
         return;
       }
       router.push({
@@ -218,6 +205,11 @@ function ImpeccableFloatingScoopedTabBar({
     );
   };
 
+  const currentRoute = state.routes[state.index];
+  if (currentRoute?.name === "settings") {
+    return null;
+  }
+
   return (
     <>
       {/* Backdrop overlay when speed-dial is open */}
@@ -276,6 +268,27 @@ function ImpeccableFloatingScoopedTabBar({
               </Text>
             </Pressable>
           )}
+
+          <Pressable
+            onPress={() => {
+              setIsMenuOpen(false);
+              const settingsRoute = state.routes.find(
+                (r) => r.name === "settings",
+              );
+              if (settingsRoute) {
+                navigateToTab(settingsRoute.key);
+              } else {
+                router.navigate("/settings");
+              }
+            }}
+            className="flex-row items-center gap-2 bg-white px-5 py-2.5 rounded-full border border-border shadow-lg active:scale-95 active:opacity-90"
+            style={{ elevation: 8 }}
+          >
+            <Ionicons name="settings-outline" size={17} color="#173D35" />
+            <Text className="text-[13px] font-semibold text-forest text-center">
+              Settings & Preferences
+            </Text>
+          </Pressable>
         </View>
       )}
 
@@ -324,25 +337,41 @@ function ImpeccableFloatingScoopedTabBar({
         >
           {/* Column 1: Home */}
           <View className="flex-1 h-full items-center justify-center">
-            {state.routes[0] && renderTab(state.routes[0], 0)}
+            {(() => {
+              const r = state.routes.find((x) => x.name === "index");
+              const idx = state.routes.findIndex((x) => x.name === "index");
+              return r && renderTab(r, idx);
+            })()}
           </View>
 
           {/* Column 2: Borrowers */}
           <View className="flex-1 h-full items-center justify-center">
-            {state.routes[1] && renderTab(state.routes[1], 1)}
+            {(() => {
+              const r = state.routes.find((x) => x.name === "borrowers");
+              const idx = state.routes.findIndex((x) => x.name === "borrowers");
+              return r && renderTab(r, idx);
+            })()}
           </View>
 
           {/* Column 3: Center Column Spacer */}
           <View style={{ width: 64, height: "100%" }} />
 
-          {/* Column 4: Activity */}
+          {/* Column 4: Analytics */}
           <View className="flex-1 h-full items-center justify-center">
-            {state.routes[2] && renderTab(state.routes[2], 2)}
+            {(() => {
+              const r = state.routes.find((x) => x.name === "analytics");
+              const idx = state.routes.findIndex((x) => x.name === "analytics");
+              return r && renderTab(r, idx);
+            })()}
           </View>
 
-          {/* Column 5: Settings */}
+          {/* Column 5: Activity */}
           <View className="flex-1 h-full items-center justify-center">
-            {state.routes[3] && renderTab(state.routes[3], 3)}
+            {(() => {
+              const r = state.routes.find((x) => x.name === "activity");
+              const idx = state.routes.findIndex((x) => x.name === "activity");
+              return r && renderTab(r, idx);
+            })()}
           </View>
         </View>
 
@@ -383,6 +412,25 @@ function ImpeccableFloatingScoopedTabBar({
           </Pressable>
         </View>
       </View>
+
+      {/* No Borrowers Prompt */}
+      {isNoBorrowersModalOpen && (
+        <FeedbackModal
+          visible={isNoBorrowersModalOpen}
+          type="error"
+          mood="thinking"
+          title="Walay Mangungutang"
+          message="Wala pa kay narekord nga mangungutang. Ilista una ang imong mangungutang aron makahimo og bag-ong pautang."
+          buttonText="+ Dugang Mangungutang"
+          onClose={() => {
+            setIsNoBorrowersModalOpen(false);
+            router.push({
+              pathname: "/borrowers",
+              params: { action: "new_borrower", t: String(Date.now()) },
+            });
+          }}
+        />
+      )}
     </>
   );
 }
@@ -406,8 +454,11 @@ export default function AppTabs() {
     >
       <Tabs.Screen name="index" options={{ title: "Home" }} />
       <Tabs.Screen name="borrowers" options={{ title: "Borrowers" }} />
+      <Tabs.Screen name="analytics" options={{ title: "Analytics" }} />
       <Tabs.Screen name="activity" options={{ title: "Activity" }} />
       <Tabs.Screen name="settings" options={{ title: "Settings" }} />
+      <Tabs.Screen name="login" options={{ href: null }} />
+      <Tabs.Screen name="register" options={{ href: null }} />
     </Tabs>
   );
 }

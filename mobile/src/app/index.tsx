@@ -15,10 +15,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { borrowerHelper } from "@/db-helpers/borrowers";
 import { loanHelper } from "@/db-helpers/loans";
 import { paymentHelper } from "@/db-helpers/payments";
-import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect, useNavigation } from "expo-router";
 import { Borrower, Loan, Payment } from "@/types/database";
 import { formatPHP } from "@/services/interest/calculateInterest";
 import { calculateLoanBalance } from "@/services/balance/calculateBalance";
+import { getLocalDateString, getDueDateBucket } from "@/services/date/dateUtils";
 import { Frog } from "@/components/frog";
 import { enforceImmersiveSystemBars } from "@/utils/system-bars";
 import {
@@ -31,6 +32,7 @@ import DashboardBg from "@/assets/images/DASHBOARD_BG.svg";
 import PautangBaiLogo from "@/assets/images/PAUTANGBAI_LOGO.svg";
 
 export default function HomeScreen() {
+  const navigation = useNavigation<any>();
   const router = useRouter();
   const db = useSQLiteContext();
   const params = useLocalSearchParams<{ action?: string; t?: string }>();
@@ -51,6 +53,11 @@ export default function HomeScreen() {
   // Detail Modal
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [selectedLoanForDetail, setSelectedLoanForDetail] = useState<Loan | null>(null);
+
+  // Collection Schedule filter
+  const [scheduleFilter, setScheduleFilter] = useState<
+    "all" | "due_today" | "due_this_week" | "overdue"
+  >("all");
 
   useEffect(() => {
     if (params.action === "new_loan") {
@@ -111,6 +118,35 @@ export default function HomeScreen() {
       };
     })
     .filter((item) => item.balance.remainingBalanceMinor > 0);
+
+  const todayStr = getLocalDateString();
+
+  const activeLoansWithBuckets = activeLoansWithBalance.map((item) => ({
+    ...item,
+    bucket: getDueDateBucket(item.loan.due_date, todayStr),
+  }));
+
+  const dueTodayCount = activeLoansWithBuckets.filter(
+    (i) => i.bucket === "due_today"
+  ).length;
+  const dueThisWeekCount = activeLoansWithBuckets.filter(
+    (i) => i.bucket === "due_this_week"
+  ).length;
+  const overdueCount = activeLoansWithBuckets.filter(
+    (i) => i.bucket === "overdue"
+  ).length;
+
+  const filteredScheduleLoans = activeLoansWithBuckets
+    .filter((item) => {
+      if (scheduleFilter === "all") return true;
+      return item.bucket === scheduleFilter;
+    })
+    .sort((a, b) => {
+      if (!a.loan.due_date && !b.loan.due_date) return 0;
+      if (!a.loan.due_date) return 1;
+      if (!b.loan.due_date) return -1;
+      return a.loan.due_date.localeCompare(b.loan.due_date);
+    });
 
   const totalCollectedMinor = payments
     .filter((p) => !p.deleted_at)
@@ -197,6 +233,23 @@ export default function HomeScreen() {
               )}
             </Pressable>
 
+            {/* Settings Icon */}
+            <Pressable
+              onPress={() => {
+                try {
+                  navigation.navigate("settings");
+                } catch {
+                  router.navigate("/settings");
+                }
+              }}
+              hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+              className="w-10 h-10 rounded-full bg-white border border-border items-center justify-center active:opacity-75 shadow-xs"
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+            >
+              <Ionicons name="settings-outline" size={19} color="#173D35" />
+            </Pressable>
+
             <View className="flex-row items-center px-2.5 py-1 rounded-full bg-emerald-100 gap-1.5">
               <View className="w-2 h-2 rounded-full bg-emerald-600" />
               <Text className="text-xs font-bold text-emerald-800">Offline</Text>
@@ -230,7 +283,7 @@ export default function HomeScreen() {
           {/* Overdue Alert Banner */}
           {overdueLoansCount > 0 && (
             <Pressable
-              onPress={() => router.push("/borrowers")}
+              onPress={() => setScheduleFilter("overdue")}
               className="flex-row items-center gap-2.5 p-3 rounded-2xl bg-amber-100 border border-amber-300 active:opacity-90 shadow-xs"
             >
               <Frog mood="reminder" size={42} />
@@ -240,7 +293,7 @@ export default function HomeScreen() {
                   {overdueLoansCount === 1 ? "loan is" : "loans are"} past due date!
                 </Text>
                 <Text className="text-amber-800 text-[11px] font-semibold mt-0.5">
-                  Tap to view borrower details & contact them
+                  Tap to filter overdue collections below
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color="#78350F" />
@@ -329,6 +382,407 @@ export default function HomeScreen() {
                 New Debtor
               </Text>
             </Pressable>
+          </View>
+
+          {/* Collection Schedule ("Kobra Schedule") */}
+          <View className="mt-1 gap-2.5">
+            <View className="flex-row justify-between items-center">
+              <View>
+                <View className="flex-row items-center gap-2">
+                  <Text className="text-lg font-black text-forest-900">
+                    Kobra Schedule
+                  </Text>
+                  <View className="px-2 py-0.5 rounded-full bg-forest-900/10">
+                    <Text className="text-[11px] font-extrabold text-forest-900">
+                      {activeLoansWithBalance.length} active
+                    </Text>
+                  </View>
+                </View>
+                <Text className="text-xs text-slate font-medium">
+                  Daily & weekly collection rounds
+                </Text>
+              </View>
+
+              {scheduleFilter !== "all" && (
+                <Pressable
+                  onPress={() => setScheduleFilter("all")}
+                  className="py-1 px-2.5 rounded-full bg-slate-200/60 active:opacity-75"
+                >
+                  <Text className="text-[11px] font-bold text-slate-700">
+                    Show All
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+
+            {/* Filter Pills with Live Counts */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
+            >
+              <Pressable
+                onPress={() => setScheduleFilter("all")}
+                className={`px-3.5 py-2 rounded-full border flex-row items-center gap-1.5 ${
+                  scheduleFilter === "all"
+                    ? "bg-forest-900 border-forest-900"
+                    : "bg-white border-border"
+                }`}
+              >
+                <Text
+                  className={`text-xs font-bold ${
+                    scheduleFilter === "all" ? "text-white" : "text-ink"
+                  }`}
+                >
+                  All Active
+                </Text>
+                <View
+                  className={`px-1.5 py-0.5 rounded-full ${
+                    scheduleFilter === "all" ? "bg-white/20" : "bg-slate-100"
+                  }`}
+                >
+                  <Text
+                    className={`text-[10px] font-black ${
+                      scheduleFilter === "all" ? "text-white" : "text-slate-600"
+                    }`}
+                  >
+                    {activeLoansWithBalance.length}
+                  </Text>
+                </View>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setScheduleFilter("due_today")}
+                className={`px-3.5 py-2 rounded-full border flex-row items-center gap-1.5 ${
+                  scheduleFilter === "due_today"
+                    ? "bg-emerald-700 border-emerald-700"
+                    : "bg-white border-border"
+                }`}
+              >
+                <Ionicons
+                  name="today"
+                  size={13}
+                  color={scheduleFilter === "due_today" ? "#FFFFFF" : "#047857"}
+                />
+                <Text
+                  className={`text-xs font-bold ${
+                    scheduleFilter === "due_today" ? "text-white" : "text-ink"
+                  }`}
+                >
+                  Due Today
+                </Text>
+                <View
+                  className={`px-1.5 py-0.5 rounded-full ${
+                    scheduleFilter === "due_today"
+                      ? "bg-white/25"
+                      : "bg-emerald-100"
+                  }`}
+                >
+                  <Text
+                    className={`text-[10px] font-black ${
+                      scheduleFilter === "due_today"
+                        ? "text-white"
+                        : "text-emerald-800"
+                    }`}
+                  >
+                    {dueTodayCount}
+                  </Text>
+                </View>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setScheduleFilter("due_this_week")}
+                className={`px-3.5 py-2 rounded-full border flex-row items-center gap-1.5 ${
+                  scheduleFilter === "due_this_week"
+                    ? "bg-forest-900 border-forest-900"
+                    : "bg-white border-border"
+                }`}
+              >
+                <Ionicons
+                  name="calendar"
+                  size={13}
+                  color={
+                    scheduleFilter === "due_this_week" ? "#FFFFFF" : "#173D35"
+                  }
+                />
+                <Text
+                  className={`text-xs font-bold ${
+                    scheduleFilter === "due_this_week" ? "text-white" : "text-ink"
+                  }`}
+                >
+                  This Week
+                </Text>
+                <View
+                  className={`px-1.5 py-0.5 rounded-full ${
+                    scheduleFilter === "due_this_week"
+                      ? "bg-white/20"
+                      : "bg-slate-100"
+                  }`}
+                >
+                  <Text
+                    className={`text-[10px] font-black ${
+                      scheduleFilter === "due_this_week"
+                        ? "text-white"
+                        : "text-slate-600"
+                    }`}
+                  >
+                    {dueThisWeekCount}
+                  </Text>
+                </View>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setScheduleFilter("overdue")}
+                className={`px-3.5 py-2 rounded-full border flex-row items-center gap-1.5 ${
+                  scheduleFilter === "overdue"
+                    ? "bg-amber-600 border-amber-600"
+                    : overdueCount > 0
+                    ? "bg-amber-50 border-amber-200"
+                    : "bg-white border-border"
+                }`}
+              >
+                <Ionicons
+                  name="alert-circle"
+                  size={13}
+                  color={
+                    scheduleFilter === "overdue"
+                      ? "#FFFFFF"
+                      : overdueCount > 0
+                      ? "#D97706"
+                      : "#66716D"
+                  }
+                />
+                <Text
+                  className={`text-xs font-bold ${
+                    scheduleFilter === "overdue"
+                      ? "text-white"
+                      : overdueCount > 0
+                      ? "text-amber-900"
+                      : "text-ink"
+                  }`}
+                >
+                  Overdue
+                </Text>
+                <View
+                  className={`px-1.5 py-0.5 rounded-full ${
+                    scheduleFilter === "overdue"
+                      ? "bg-white/25"
+                      : overdueCount > 0
+                      ? "bg-amber-200"
+                      : "bg-slate-100"
+                  }`}
+                >
+                  <Text
+                    className={`text-[10px] font-black ${
+                      scheduleFilter === "overdue"
+                        ? "text-white"
+                        : overdueCount > 0
+                        ? "text-amber-950"
+                        : "text-slate-600"
+                    }`}
+                  >
+                    {overdueCount}
+                  </Text>
+                </View>
+              </Pressable>
+            </ScrollView>
+
+            {/* List of Scheduled Collections */}
+            {filteredScheduleLoans.length === 0 ? (
+              <View className="rounded-2xl p-6 bg-white border border-border items-center justify-center gap-1.5 shadow-xs">
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={32}
+                  color="#287A63"
+                />
+                <Text className="text-sm font-extrabold text-forest-900">
+                  {scheduleFilter === "overdue"
+                    ? "Walay Overdue, Bai!"
+                    : scheduleFilter === "due_today"
+                    ? "Walay Kobrahonon Karon"
+                    : scheduleFilter === "due_this_week"
+                    ? "Walay Due Karong Semanaha"
+                    : "Walay Active Loans"}
+                </Text>
+                <Text className="text-xs text-slate text-center">
+                  {scheduleFilter === "all"
+                    ? "No active loans yet. Tap New Loan above to record one."
+                    : "No borrowers scheduled for collection in this filter."}
+                </Text>
+              </View>
+            ) : (
+              filteredScheduleLoans.map((item) => {
+                const percentPaid = Math.min(
+                  100,
+                  Math.round(
+                    (item.balance.totalPaidMinor /
+                      (item.balance.totalOwedMinor || 1)) *
+                      100
+                  )
+                );
+
+                return (
+                  <View
+                    key={item.loan.id}
+                    className="p-4 rounded-2xl bg-white border border-border shadow-xs gap-3"
+                  >
+                    {/* Top Row: Borrower Info + Remaining Balance */}
+                    <Pressable
+                      onPress={() => handleOpenDetailModal(item.loan)}
+                      className="flex-row justify-between items-start active:opacity-75"
+                    >
+                      <View className="flex-1 pr-2">
+                        <View className="flex-row items-center gap-2">
+                          <Text
+                            className="text-base font-extrabold text-ink"
+                            numberOfLines={1}
+                          >
+                            {item.borrower?.name || "Unknown Debtor"}
+                          </Text>
+                          {item.borrower?.phone && (
+                            <Text className="text-[11px] text-slate-400 font-medium">
+                              • {item.borrower.phone}
+                            </Text>
+                          )}
+                        </View>
+
+                        {/* Status / Due Badge */}
+                        <View className="flex-row items-center gap-1.5 mt-1">
+                          {item.bucket === "overdue" ? (
+                            <View className="px-2 py-0.5 rounded-md bg-red-100 flex-row items-center gap-1">
+                              <Ionicons
+                                name="alert-circle"
+                                size={11}
+                                color="#B91C1C"
+                              />
+                              <Text className="text-[11px] font-black text-red-900">
+                                Overdue ({item.loan.due_date || "Past due"})
+                              </Text>
+                            </View>
+                          ) : item.bucket === "due_today" ? (
+                            <View className="px-2 py-0.5 rounded-md bg-emerald-100 flex-row items-center gap-1">
+                              <Ionicons
+                                name="today"
+                                size={11}
+                                color="#047857"
+                              />
+                              <Text className="text-[11px] font-black text-emerald-900">
+                                Due Today
+                              </Text>
+                            </View>
+                          ) : item.bucket === "due_this_week" ? (
+                            <View className="px-2 py-0.5 rounded-md bg-mint/50 flex-row items-center gap-1">
+                              <Ionicons
+                                name="calendar-outline"
+                                size={11}
+                                color="#173D35"
+                              />
+                              <Text className="text-[11px] font-extrabold text-forest-900">
+                                Due {item.loan.due_date}
+                              </Text>
+                            </View>
+                          ) : item.loan.due_date ? (
+                            <View className="px-2 py-0.5 rounded-md bg-slate-100 flex-row items-center gap-1">
+                              <Ionicons
+                                name="time-outline"
+                                size={11}
+                                color="#66716D"
+                              />
+                              <Text className="text-[11px] font-semibold text-slate-600">
+                                Due {item.loan.due_date}
+                              </Text>
+                            </View>
+                          ) : (
+                            <View className="px-2 py-0.5 rounded-md bg-slate-100">
+                              <Text className="text-[11px] font-medium text-slate-500">
+                                No Due Date
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+
+                      <View className="items-end">
+                        <Text
+                          style={{ fontVariant: ["tabular-nums"] }}
+                          className={`text-lg font-black ${
+                            item.bucket === "overdue"
+                              ? "text-danger"
+                              : "text-forest-900"
+                          }`}
+                        >
+                          {formatPHP(item.balance.remainingBalanceMinor)}
+                        </Text>
+                        <Text className="text-[10px] text-slate font-medium">
+                          of {formatPHP(item.balance.totalOwedMinor)}
+                        </Text>
+                      </View>
+                    </Pressable>
+
+                    {/* Progress Bar */}
+                    <View className="gap-1">
+                      <View className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                        <View
+                          className={`h-full rounded-full ${
+                            item.bucket === "overdue"
+                              ? "bg-amber-500"
+                              : "bg-bai"
+                          }`}
+                          style={{ width: `${percentPaid}%` }}
+                        />
+                      </View>
+                      <View className="flex-row justify-between items-center">
+                        <Text
+                          style={{ fontVariant: ["tabular-nums"] }}
+                          className="text-[11px] text-slate-500"
+                        >
+                          Paid: {formatPHP(item.balance.totalPaidMinor)}
+                        </Text>
+                        <Text
+                          style={{ fontVariant: ["tabular-nums"] }}
+                          className="text-[11px] font-bold text-slate-600"
+                        >
+                          {percentPaid}%
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Quick Action Buttons */}
+                    <View className="flex-row items-center gap-2 pt-1 border-t border-slate-100">
+                      <Pressable
+                        onPress={() => {
+                          setSelectedLoanForPay(item.loan);
+                          setIsPayModalVisible(true);
+                        }}
+                        className="flex-1 py-2.5 rounded-xl bg-bai flex-row items-center justify-center gap-1.5 active:opacity-90"
+                        accessibilityLabel="Record Payment"
+                      >
+                        <Ionicons
+                          name="cash-outline"
+                          size={15}
+                          color="#FFFFFF"
+                        />
+                        <Text className="text-xs font-bold text-white">
+                          Record Payment
+                        </Text>
+                      </Pressable>
+
+                      <Pressable
+                        onPress={() => handleOpenDetailModal(item.loan)}
+                        className="py-2.5 px-3 rounded-xl bg-slate-100 items-center justify-center active:bg-slate-200"
+                        accessibilityLabel="View Loan Details"
+                      >
+                        <Ionicons
+                          name="chevron-forward"
+                          size={16}
+                          color="#173D35"
+                        />
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              })
+            )}
           </View>
 
           {/* Recent Activity Section */}

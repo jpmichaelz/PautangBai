@@ -6,19 +6,19 @@ This plan details the missing offline features and high-value UX improvements fo
 
 ## Task Overview & Execution Order
 
-| Task        | Feature                                                              | Priority | Primary Files                                                                                                                 |
-| ----------- | -------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Task 1**  | Payment Allocation Preview, Quick-Fill Chips & Reference No.         | High     | `src/components/forms/payment-form-modal.tsx`, `src/app/activity.tsx`, `src/components/forms/loan-detail-modal.tsx`           |
-| **Task 2**  | Edit & Delete/Archive Borrower                                       | High     | `src/components/forms/borrower-form-modal.tsx`, `src/app/borrowers.tsx`, `src/components/forms/loan-detail-modal.tsx`         |
-| **Task 3**  | Backdating Loans & Payments + Custom Due Date                        | High     | `src/components/forms/loan-form-modal.tsx`, `src/components/forms/payment-form-modal.tsx`, `src/services/date/dateUtils.ts`   |
-| **Task 4**  | Offline JSON Backup Import / Restore                                 | High     | `src/app/settings.tsx`, `src/services/backup/backupService.ts`                                                                |
-| **Task 5**  | Offline SMS / Receipt Generator ("Singil / Resibo")                  | High     | `src/services/share/receiptGenerator.ts`, `src/components/forms/loan-detail-modal.tsx`, `src/app/activity.tsx`                |
-| **Task 6**  | Borrower-Grouped View & "Kwaderno" Running Ledger (SOA)              | High     | `src/app/borrowers.tsx`, `src/services/ledger/kwadernoLedger.ts`                                                              |
-| **Task 7**  | Activity Ledger Search, Filter & Loan Detail Action                  | Medium   | `src/app/activity.tsx`                                                                                                        |
-| **Task 8**  | Offline 4-Digit PIN App Lock (`expo-secure-store`)                   | Low      | `src/app/_layout.tsx`, `src/app/settings.tsx`                                                                                 |
-| **Task 9**  | Collection Schedule / Due-Date Buckets (Due Today, Week, Overdue)    | High     | `src/app/index.tsx`, `src/services/date/dateUtils.ts`                                                                         |
-| **Task 10** | Offline Profit / Capital Analytics ("Tubo vs Puhunan")               | High     | `src/app/index.tsx`, `src/services/balance/calculateBalance.ts`                                                               |
-| **Task 11** | Two-Way Debt Toggle ("Gipautang" vs "Akong Utang" — Schema V2 + API) | Medium   | `src/database/migrate.ts`, `src/database/migrations/v2.ts`, `src/types/database.ts`, `src/app/index.tsx`, `backend/database/` |
+| Task        | Feature                                                              | Priority | Status                    | Primary Files                                                                                                                 |
+| ----------- | -------------------------------------------------------------------- | -------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Task 1**  | Payment Allocation Preview, Quick-Fill Chips & Reference No.         | High     | ⏳ Pending                | `src/components/forms/payment-form-modal.tsx`, `src/app/activity.tsx`, `src/components/forms/loan-detail-modal.tsx`           |
+| **Task 2**  | Edit & Delete/Archive Borrower                                       | High     | ✅ **FINISHED**           | `src/components/forms/borrower-form-modal.tsx`, `src/app/borrowers.tsx`, `src/components/forms/loan-detail-modal.tsx`         |
+| **Task 3**  | Backdating Loans & Payments + Custom Due Date                        | High     | ✅ **FINISHED**           | `src/components/forms/loan-form-modal.tsx`, `src/components/forms/payment-form-modal.tsx`, `src/services/date/dateUtils.ts`   |
+| **Task 4**  | Offline JSON Backup Import / Restore                                 | High     | ⏳ Pending                | `src/app/settings.tsx`, `src/services/backup/backupService.ts`                                                                |
+| **Task 5**  | Offline SMS / Receipt Generator ("Singil / Resibo")                  | High     | ⏳ Pending                | `src/services/share/receiptGenerator.ts`, `src/components/forms/loan-detail-modal.tsx`, `src/app/activity.tsx`                |
+| **Task 6**  | Borrower-Grouped View & "Kwaderno" Running Ledger (SOA)              | High     | ⏳ Pending                | `src/app/borrowers.tsx`, `src/services/ledger/kwadernoLedger.ts`                                                              |
+| **Task 7**  | Activity Ledger Search, Filter & Loan Detail Action                  | Medium   | 🟡 **PARTIALLY FINISHED** | `src/app/activity.tsx`                                                                                                        |
+| **Task 8**  | Offline 4-Digit PIN App Lock (`expo-secure-store`)                   | Low      | ⏳ Pending                | `src/app/_layout.tsx`, `src/app/settings.tsx`                                                                                 |
+| **Task 9**  | Collection Schedule / Due-Date Buckets (Due Today, Week, Overdue)    | High     | ✅ **FINISHED**           | `src/app/index.tsx`, `src/services/date/dateUtils.ts`                                                                         |
+| **Task 10** | Offline Profit / Capital Analytics ("Tubo vs Puhunan")               | High     | ✅ **FINISHED**           | `src/app/analytics.tsx`, `src/components/app-tabs.tsx`, `src/services/balance/calculateBalance.ts`                            |
+| **Task 11** | Two-Way Debt Toggle ("Gipautang" vs "Akong Utang" — Schema V2 + API) | Medium   | ⏳ Pending                | `src/database/migrate.ts`, `src/database/migrations/v2.ts`, `src/types/database.ts`, `src/app/index.tsx`, `backend/database/` |
 
 ---
 
@@ -70,7 +70,13 @@ This plan details the missing offline features and high-value UX improvements fo
 
 ---
 
-## Task 2: Edit & Delete/Archive Borrower
+## Task 2: Edit & Delete/Archive Borrower — ✅ FINISHED
+
+> [!NOTE]
+> **Status:** ✅ **FINISHED / IMPLEMENTED**
+>
+> - **BorrowerFormModal:** Supports `editingBorrower` prefill (name, phone, address, tag parsing), `borrowerHelper.update()`, and delete guard checking for active unpaid loans.
+> - **BorrowersScreen & LoanDetailModal:** Edit buttons wired up to open the form in edit mode and trigger refresh/update callbacks.
 
 ### Why We Need It
 
@@ -109,7 +115,13 @@ This plan details the missing offline features and high-value UX improvements fo
 
 ---
 
-## Task 3: Backdating Loans & Payments + Custom Due Date
+## Task 3: Backdating Loans & Payments + Custom Due Date — ✅ FINISHED
+
+> [!NOTE]
+> **Status:** ✅ **FINISHED / IMPLEMENTED**
+> - **dateUtils.ts:** Added `isValidDateString(dateStr)` for calendar validation and leap-year correctness.
+> - **LoanFormModal:** Date Borrowed selector (`Today`, `Yesterday`, `Custom Date` input), Custom Due Date input (`YYYY-MM-DD`), relative calculation from loan date, and preview card date display.
+> - **PaymentFormModal:** Payment Date selector (`Today`, `Yesterday`, `Custom Date` input) and validation preventing payment date before loan date.
 
 ### Why We Need It
 
@@ -257,7 +269,14 @@ This plan details the missing offline features and high-value UX improvements fo
 
 ---
 
-## Task 7: Activity Ledger Search, Filter & Loan Detail Action
+## Task 7: Activity Ledger Search, Filter & Loan Detail Action — 🟡 PARTIALLY FINISHED
+
+> [!NOTE]
+> **Status:** 🟡 **PARTIALLY FINISHED**
+>
+> - ✅ **Filter Chips:** Filter by `All`, `Payments`, and `Loans` implemented in `src/app/activity.tsx`.
+> - ✅ **Loan Detail Action:** Tapping a loan item in Activity modal links directly to `LoanDetailModal` with full payment actions.
+> - ⏳ **Pending:** Search input for querying borrower name, method, notes, and reference.
 
 ### Why We Need It
 
@@ -321,7 +340,7 @@ This plan details the missing offline features and high-value UX improvements fo
 
 ### Architectural Safeguard
 
-- **Never use SQLite `date('now')` for local due-date buckets:** SQLite `date('now')` evaluates in **UTC**. In the Philippines (`UTC+8`), between 12:00 AM and 7:59 AM, `date('now')` returns *yesterday's* date.
+- **Never use SQLite `date('now')` for local due-date buckets:** SQLite `date('now')` evaluates in **UTC**. In the Philippines (`UTC+8`), between 12:00 AM and 7:59 AM, `date('now')` returns _yesterday's_ date.
 - Always compute `today = getLocalDateString()` and `weekEnd = addDays(today, 7)` using `src/services/date/dateUtils.ts`.
 
 ### Files Involved
